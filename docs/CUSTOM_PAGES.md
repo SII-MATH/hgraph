@@ -5,6 +5,21 @@ Projects can enable the built-in Blueprint Map and add custom pages in their
 closing them keeps the current chapter, selection, search query, and scroll
 position. Closing does not reload the application.
 
+## Mobile navigation
+
+At widths up to 900 CSS pixels, each project's header includes a **Menu**
+button. It opens the same native navigation in a dialog: search and status
+filters, built-in views, enabled custom pages, the optional Map, and chapter
+and section links. Selecting a destination closes the menu. Press Enter in
+search, or select **View results**, to return to filtered statements.
+
+The menu uses the project's theme, traps keyboard focus, locks background
+scrolling, and restores focus when dismissed with its close button or Escape.
+Dismissal keeps the current reader, selection, query, and reading position.
+Moving back above 900 pixels closes the menu and restores desktop navigation.
+Desktop panel preferences do not hide the mobile menu. No configuration is
+needed; `site.map` and custom-page settings continue to control their entries.
+
 ## Enable the built-in Map
 
 ```yaml

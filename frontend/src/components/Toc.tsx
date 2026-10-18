@@ -43,6 +43,8 @@ export function Toc({
   map,
   mapOpen = false,
   customModalId,
+  id = 'blueprint-navigation',
+  onSearchSubmit,
 }: {
   chapters: Chapter[];
   refs: Record<string, RefEntry>;
@@ -60,6 +62,8 @@ export function Toc({
   map?: { enabled: boolean; label: string };
   mapOpen?: boolean;
   customModalId?: string | null;
+  id?: string;
+  onSearchSubmit?: () => void;
 }) {
   const [openCh, setOpenCh] = useState<Set<number>>(new Set());
 
@@ -70,44 +74,53 @@ export function Toc({
   };
 
   return (
-    <nav className="doc-nav" id="blueprint-navigation" aria-label="Blueprint navigation">
+    <nav className="doc-nav" id={id} aria-label="Blueprint navigation">
       <input
         className="navq"
         placeholder="Search statements…"
         value={query}
         onChange={(e) => onQuery(e.target.value)}
+        aria-label="Search statements"
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && onSearchSubmit) {
+            e.preventDefault();
+            onSearchSubmit();
+          }
+        }}
       />
       <div className="navchips">
         {(['mathlib_ok', 'lean_ok', 'sorry', 'empty'] as const).map((s) => (
-          <span
+          <button
+            type="button"
             key={s}
             className={`navchip${statusFilter.has(s) ? ' on' : ''}`}
             onClick={() => onToggleStatus(s)}
+            aria-pressed={statusFilter.has(s)}
           >
             {s.replace('_', ' ')}
-          </span>
+          </button>
         ))}
       </div>
       <div className="navlinks">
         {NAV_LINKS.map((n) => (
-          <a
+          <button type="button"
             key={n.view}
             className={`navlink${(n.view === 'graph' ? graphOpen : view === n.view) ? ' on' : ''}`}
             onClick={() => onSetView(n.view)}
           >
             <span className="ni">{n.icon}</span>
             {n.label}
-          </a>
+          </button>
         ))}
         {customTabs.map((c) => (
-          <a
+          <button type="button"
             key={c.id}
             className={`navlink${(view === c.id || customModalId === c.id) ? ' on' : ''}`}
             onClick={() => onSetView(c.id)}
           >
             <span className="ni">{c.icon || CUSTOM_TAB_ICON}</span>
             {c.label}
-          </a>
+          </button>
         ))}
         {map?.enabled && <button type="button" className={`navlink${mapOpen ? ' on' : ''}`} onClick={() => onSetView('map')}>
           <span className="ni">▦</span>{map.label}
@@ -122,30 +135,33 @@ export function Toc({
         return (
           <div key={i}>
             {startsAppendix && <div className="navsec">Appendices</div>}
-            <div className={`tch${i === curCh ? ' sel' : ''}`} onClick={() => onGoto(i)}>
-              <span className="tchev" onClick={(e) => { e.stopPropagation(); toggleCh(i); }}>
+            <div className={`tch${i === curCh ? ' sel' : ''}`}>
+              <button type="button" className="tchev" onClick={() => toggleCh(i)}
+                aria-expanded={open} aria-label={`${open ? 'Collapse' : 'Expand'} chapter ${ch.num || i + 1}`}>
                 {open ? '▾' : '▸'}
-              </span>
+              </button>
+              <button type="button" className="tch-link" onClick={() => onGoto(i)}>
               <span className="n">{ch.num}</span>
               <Tex as="span" text={ch.title} refs={refs} />
               <span className="c">{chapterStmtCount(ch)}</span>
+              </button>
             </div>
             {open &&
               chapterTree(ch)
                 .filter((s) => s.num)
                 .map((s) => (
                   <div key={s.num}>
-                    <div className="tsec" onClick={() => onGotoSection(i, s.num)}>
+                    <button type="button" className="tsec" onClick={() => onGotoSection(i, s.num)}>
                       <span className="tchev-sp" />
                       <span className="n">{s.num}</span>
                       <span>{plainTex(s.title)}</span>
-                    </div>
+                    </button>
                     {s.subs.map((u) => (
-                      <div className="tsec l3" key={u.num} onClick={() => onGotoSection(i, u.num)}>
+                      <button type="button" className="tsec l3" key={u.num} onClick={() => onGotoSection(i, u.num)}>
                         <span className="tchev-sp" />
                         <span className="n">{u.num}</span>
                         <span>{plainTex(u.title)}</span>
-                      </div>
+                      </button>
                     ))}
                   </div>
                 ))}

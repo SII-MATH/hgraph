@@ -201,6 +201,127 @@ await test('static lifecycle under a preserved /proxy/PORT/ prefix', async (t) =
       await map.evaluate((element) => element.classList.remove('on'));
     }
   });
+  await t.test('mobile menu traps focus and dismisses without replacing the reader', async () => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    // Seed the reader at the phone width so desktop-to-phone reflow is not
+    // mistaken for a menu-induced scroll change. The desktop rail is hidden.
+    await page.goto(`${base}?fixture=${++readerRun}#/enabled#test:node-1`);
+    await page.locator('#stmt-node-1.sel').waitFor();
+    await page.evaluate(() => {
+      window.scrollTo(0, 500);
+      window.readerMarker = document.querySelector('.doc-main');
+      window.readerQueryMarker = document.querySelector('.navq');
+      window.lifecycleLoadToken = crypto.randomUUID();
+    });
+    await pause();
+    const state = await page.evaluate(() => ({ token: window.lifecycleLoadToken, y: scrollY,
+      selected: document.querySelector('.stmt.sel')?.id, query: document.querySelector('.navq').value }));
+    const trigger = page.getByRole('button', { name: 'Open navigation menu' });
+    try {
+      await trigger.click();
+      const dialog = page.getByRole('dialog', { name: 'Navigation', exact: true });
+      await dialog.waitFor();
+      assert.equal(await trigger.getAttribute('aria-expanded'), 'true');
+      assert.equal(await page.evaluate(() => document.body.style.overflow), 'hidden');
+      assert.equal(await page.locator('#blueprint-navigation').isVisible(), false);
+      assert.equal(await dialog.locator('#blueprint-mobile-navigation').count(), 1);
+      const close = dialog.getByRole('button', { name: 'Close Navigation', exact: true });
+      await close.focus();
+      await page.keyboard.press('Shift+Tab');
+      assert.ok(await dialog.evaluate((element) => element.contains(document.activeElement)));
+      await page.keyboard.press('Tab');
+      assert.ok(await close.evaluate((element) => element === document.activeElement));
+      await page.keyboard.press('Escape');
+      await unchanged(page, state);
+      assert.ok(await trigger.evaluate((element) => element === document.activeElement));
+      await trigger.click();
+      await close.click();
+      await unchanged(page, state);
+      assert.equal(await page.evaluate(() => document.body.style.overflow), '');
+    } finally { await page.setViewportSize({ width: 1440, height: 900 }); }
+  });
+  await t.test('mobile menu opens Map, Graph, custom pages and native views', async () => {
+    await reader(page);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await pause();
+    const state = await page.evaluate(() => ({ token: window.lifecycleLoadToken, y: scrollY,
+      selected: document.querySelector('.stmt.sel')?.id, query: document.querySelector('.navq').value }));
+    const trigger = page.getByRole('button', { name: 'Open navigation menu' });
+    const menuLink = async (name) => {
+      await trigger.click();
+      return page.locator('#blueprint-mobile-navigation .navlink').filter({ hasText: name });
+    };
+    try {
+      await (await menuLink('Blueprint map')).click();
+      assert.equal(await page.getByRole('dialog', { name: 'Navigation', exact: true }).count(), 0);
+      const frame = await (await page.locator('iframe.native-map-frame').elementHandle()).contentFrame();
+      await frame.locator('.node-card').first().waitFor();
+      await frame.locator('#map-close').click();
+      await unchanged(page, state);
+      assert.ok(await trigger.evaluate((element) => element === document.activeElement));
+      await (await menuLink('Dependency graph')).click();
+      await page.getByRole('button', { name: 'Close graph', exact: true }).click();
+      await unchanged(page, state);
+      await (await menuLink('Inline tool')).click();
+      await page.getByRole('button', { name: 'Finish inline' }).click();
+      await unchanged(page, state);
+      await (await menuLink('Blueprint summary')).click();
+      await page.getByRole('heading', { name: 'Blueprint summary', exact: true }).waitFor();
+      await trigger.click();
+      await page.getByRole('button', { name: 'View results', exact: true }).click();
+      await waitFor(async () => await page.locator('.doc-main .stmt').count() === entries.length, 'View results did not leave the summary');
+      await (await menuLink('Blueprint bibliography')).click();
+      assert.equal(await page.getByRole('dialog', { name: 'Navigation', exact: true }).count(), 0);
+      await (await menuLink('Default page')).click();
+      await page.getByRole('heading', { name: 'Default page content' }).waitFor();
+      await page.getByRole('button', { name: 'Finish page' }).click();
+      await (await menuLink('Overview')).click();
+      await page.locator('.maketitle').waitFor();
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    } finally { await page.setViewportSize({ width: 1440, height: 900 }); }
+  });
+  await t.test('mobile menu supports search, status filters, chapter sections and resizing', async () => {
+    await reader(page);
+    await page.setViewportSize({ width: 390, height: 844 });
+    const trigger = page.getByRole('button', { name: 'Open navigation menu' });
+    const mobile = page.locator('#blueprint-mobile-navigation');
+    try {
+      await trigger.click();
+      await mobile.getByRole('textbox', { name: 'Search statements' }).fill('Lifecycle result 2');
+      await mobile.getByRole('textbox', { name: 'Search statements' }).press('Enter');
+      await waitFor(async () => await page.locator('.doc-main .stmt').count() === 1, 'Mobile search did not reach the reader');
+      await trigger.click();
+      assert.equal(await mobile.locator('.navq').inputValue(), 'Lifecycle result 2');
+      await mobile.locator('.navq').fill('');
+      await mobile.getByRole('button', { name: 'lean ok', exact: true }).click();
+      assert.equal(await mobile.getByRole('button', { name: 'lean ok', exact: true }).getAttribute('aria-pressed'), 'true');
+      await page.getByRole('button', { name: 'View results', exact: true }).click();
+      await waitFor(async () => await page.locator('.doc-main .stmt').count() === 4, 'Mobile status filter did not reach the reader');
+      await trigger.click();
+      await mobile.getByRole('button', { name: 'Expand chapter 2', exact: true }).click();
+      assert.equal(await mobile.getByRole('button', { name: 'Collapse chapter 2', exact: true }).getAttribute('aria-expanded'), 'true');
+      await mobile.locator('.tsec').last().click();
+      await page.getByRole('heading', { name: /Second chapter/ }).waitFor();
+      assert.equal(await mobile.count(), 0);
+      await trigger.click();
+      await mobile.locator('.tch-link').first().click();
+      await page.getByRole('heading', { name: /First chapter/ }).waitFor();
+      await trigger.click();
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await waitFor(async () => await mobile.count() === 0, 'Menu did not dismiss at the desktop breakpoint');
+      assert.equal(await trigger.isVisible(), false);
+      assert.equal(await page.evaluate(() => document.body.style.overflow), '');
+      await page.getByRole('button', { name: 'Collapse navigation panel', exact: true }).click();
+      await page.setViewportSize({ width: 390, height: 844 });
+      await trigger.click();
+      assert.equal(await mobile.isVisible(), true, 'Desktop panel preference hid the mobile menu');
+      await page.getByRole('button', { name: 'Close Navigation', exact: true }).click();
+    } finally {
+      await page.setViewportSize({ width: 1440, height: 900 });
+      const expand = page.getByRole('button', { name: 'Expand navigation panel', exact: true });
+      if (await expand.count()) await expand.click();
+    }
+  });
   await t.test('native Map receives every node, preserves statuses, and renders local math', async () => {
     const state = await reader(page);
     const frame = await mapFrame(page);

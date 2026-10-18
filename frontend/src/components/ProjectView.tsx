@@ -14,6 +14,7 @@ import { citeNums, plainTex, setExtRefs } from '../latex';
 import { setDefaultMacros } from '../typeset';
 import {
   Network,
+  Menu,
   PanelLeftClose,
   PanelLeftOpen,
   PanelRightClose,
@@ -152,6 +153,14 @@ export function ProjectView({ root, initialLocator }: { root: string; initialLoc
   // original's separate `GM.open`/`GM.sel`.
   const [graphOpen, setGraphOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
+  const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
+  const closeMobileNavigation = useCallback(() => setMobileNavigationOpen(false), []);
+  useEffect(() => {
+    const mobile = window.matchMedia('(max-width: 900px)');
+    function resize() { if (!mobile.matches) setMobileNavigationOpen(false); }
+    mobile.addEventListener('change', resize);
+    return () => mobile.removeEventListener('change', resize);
+  }, []);
   const [mapError, setMapError] = useState<string | null>(null);
   const [customModal, setCustomModal] = useState<ContentTab | null>(null);
   const returnPage = useRef<{ view: ViewName; x: number; y: number }>({ view: 'overview', x: 0, y: 0 });
@@ -189,6 +198,7 @@ export function ProjectView({ root, initialLocator }: { root: string; initialLoc
   useEffect(() => {
     const controller = new AbortController();
     setData(null);
+    setMobileNavigationOpen(false);
     setError(null);
     setLoadedChapters(new Set());
     setLoadingChapters(new Set());
@@ -373,6 +383,7 @@ export function ProjectView({ root, initialLocator }: { root: string; initialLoc
   // of a chapter/section/equation `\ref`, and of the bibliography's "Cited in".
   // An empty `elementId` just opens the chapter at its top.
   const gotoAnchor = useCallback((chapterIndex: number, elementId: string) => {
+    setMobileNavigationOpen(false);
     setMapOpen(false);
     setCustomModal(null);
     setView('doc');
@@ -393,6 +404,7 @@ export function ProjectView({ root, initialLocator }: { root: string; initialLoc
   // useCallback: navigate is a prop of every memoised BlockView — a fresh
   // closure per render would defeat the memo and re-render whole chapters
   const navigate = useCallback((id: string) => {
+    setMobileNavigationOpen(false);
     setMapOpen(false);
     setCustomModal(null);
     // a "<chapter index>:<element id>" locator rather than a node id — what
@@ -434,6 +446,11 @@ export function ProjectView({ root, initialLocator }: { root: string; initialLoc
   }, [navigate]);
 
   function gotoSection(chapterIndex: number, num: string) {
+    setMobileNavigationOpen(false);
+    setMapOpen(false);
+    setCustomModal(null);
+    setQuery('');
+    setStatusFilter(new Set());
     setView('doc');
     setCurCh(chapterIndex);
     setSelectedId(null);
@@ -453,6 +470,7 @@ export function ProjectView({ root, initialLocator }: { root: string; initialLoc
   }, [gotoAnchor]);
 
   const gotoChapter = useCallback((chapterIndex: number) => {
+    setMobileNavigationOpen(false);
     setMapOpen(false);
     setCustomModal(null);
     setView('doc');
@@ -504,6 +522,12 @@ export function ProjectView({ root, initialLocator }: { root: string; initialLoc
     if (q.trim() || statusFilter.size) void loadAllChapters().catch(() => undefined);
   }
 
+  function showMobileResults() {
+    setView('doc');
+    setMobileNavigationOpen(false);
+    if (query.trim() || statusFilter.size) void loadAllChapters().catch(() => undefined);
+  }
+
   const [flashBibKey, setFlashBibKey] = useState<string | null>(null);
   const onCite = useCallback((key: string) => {
     setView('biblio');
@@ -548,6 +572,7 @@ export function ProjectView({ root, initialLocator }: { root: string; initialLoc
   }, [data, allChaptersLoaded, debouncedQuery, statusFilter, chapters, searchText]);
 
   function onSetView(v: ViewName) {
+    setMobileNavigationOpen(false);
     if (v === 'graph') {
       setMapOpen(false);
       setCustomModal(null);
@@ -673,8 +698,26 @@ export function ProjectView({ root, initialLocator }: { root: string; initialLoc
       {customModal && <ContentModal title={customModal.label} onClose={closeCustomModal}>
         <ContentPage html={customModal.html} className="doc" onClose={closeCustomModal} onNavigate={navigateFromCustom} />
       </ContentModal>}
+      {mobileNavigationOpen && <ContentModal title="Navigation" onClose={closeMobileNavigation}>
+        <div className="mobile-navigation">
+          <Toc id="blueprint-mobile-navigation" chapters={chapters} refs={refs} curCh={curCh}
+            onGoto={gotoChapter} onGotoSection={gotoSection}
+            query={query} onQuery={onQueryChange} statusFilter={statusFilter} onToggleStatus={toggleStatus}
+            view={view} graphOpen={graphOpen} customTabs={customTabs} map={data.map} mapOpen={mapOpen}
+            customModalId={customModal?.id} onSearchSubmit={showMobileResults}
+            onSetView={onSetView} />
+          {(query.trim() || statusFilter.size > 0) && <div className="mobile-navigation-actions">
+            <button type="button" className="gm-btn" onClick={showMobileResults}>View results</button>
+          </div>}
+        </div>
+      </ContentModal>}
       <header className="project-header">
         <div className="project-htop">
+          <button type="button" className="gm-btn mobile-menu-toggle" aria-label="Open navigation menu"
+            title="Open navigation menu" aria-controls="blueprint-mobile-navigation"
+            aria-haspopup="dialog" aria-expanded={mobileNavigationOpen} onClick={() => setMobileNavigationOpen(true)}>
+            <Menu size={18} aria-hidden="true" /><span>Menu</span>
+          </button>
           <a href="#/" className="project-home" title="All projects">
             &larr; All projects
           </a>
