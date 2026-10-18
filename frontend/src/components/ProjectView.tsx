@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Chapter, ProjectData, ProjectGraphData, Dep, StmtBlock } from '../types';
+import type { Chapter, ProjectData, ProjectGraphData, Dep, StmtBlock, ContentTab } from '../types';
 import { ChapterView } from './ChapterView';
 import { Toc, type ViewName } from './Toc';
 import { Outline } from './Outline';
@@ -9,6 +9,7 @@ import { HoverPreview } from './HoverPreview';
 import { Summary } from './Summary';
 import { Bibliography } from './Bibliography';
 import { ContentPage } from './ContentPage';
+import { ContentModal } from './ContentModal';
 import { citeNums, plainTex, setExtRefs } from '../latex';
 import { setDefaultMacros } from '../typeset';
 import {
@@ -24,6 +25,7 @@ import {
 const GraphModal = lazy(() =>
   import('./GraphModal').then((module) => ({ default: module.GraphModal })),
 );
+const MapModal = lazy(() => import('./MapModal').then((module) => ({ default: module.MapModal })));
 
 // how many search results render at once — past this, a broad query (one
 // letter, or a bare status chip on a large blueprint) would typeset hundreds
@@ -149,6 +151,10 @@ export function ProjectView({ root, initialLocator }: { root: string; initialLoc
   // `graphSelectedId` is its own node-detail-panel selection, matching the
   // original's separate `GM.open`/`GM.sel`.
   const [graphOpen, setGraphOpen] = useState(false);
+  const [mapOpen, setMapOpen] = useState(false);
+  const [mapError, setMapError] = useState<string | null>(null);
+  const [customModal, setCustomModal] = useState<ContentTab | null>(null);
+  const returnPage = useRef<{ view: ViewName; x: number; y: number }>({ view: 'overview', x: 0, y: 0 });
   const [graphSelectedId, setGraphSelectedId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<Set<string>>(new Set());
@@ -163,6 +169,13 @@ export function ProjectView({ root, initialLocator }: { root: string; initialLoc
   const [view, setView] = useState<ViewName>('overview');
   const [leftPanelOpen, toggleLeftPanel] = useStoredPanelState('hgraph:blueprint:left-panel');
   const [rightPanelOpen, toggleRightPanel] = useStoredPanelState('hgraph:blueprint:right-panel');
+  const closeMap = useCallback(() => setMapOpen(false), []);
+  const closeCustomModal = useCallback(() => setCustomModal(null), []);
+  const closeCustomPage = useCallback(() => {
+    const previous = returnPage.current;
+    setView(previous.view);
+    requestAnimationFrame(() => window.scrollTo(previous.x, previous.y));
+  }, []);
 
   // project macros apply to every typeset on the page, including titles that
   // don't thread a macros prop (TOC, overview, summary, bibliography); the
@@ -181,6 +194,8 @@ export function ProjectView({ root, initialLocator }: { root: string; initialLoc
     setLoadingChapters(new Set());
     setChapterErrors(new Map());
     setGraphData(null);
+    setMapOpen(false);
+    setCustomModal(null);
     setGraphError(null);
     graphRequest.current = null;
     chapterRequests.current.clear();
@@ -358,6 +373,8 @@ export function ProjectView({ root, initialLocator }: { root: string; initialLoc
   // of a chapter/section/equation `\ref`, and of the bibliography's "Cited in".
   // An empty `elementId` just opens the chapter at its top.
   const gotoAnchor = useCallback((chapterIndex: number, elementId: string) => {
+    setMapOpen(false);
+    setCustomModal(null);
     setView('doc');
     setQuery('');
     setStatusFilter(new Set());
@@ -376,6 +393,8 @@ export function ProjectView({ root, initialLocator }: { root: string; initialLoc
   // useCallback: navigate is a prop of every memoised BlockView — a fresh
   // closure per render would defeat the memo and re-render whole chapters
   const navigate = useCallback((id: string) => {
+    setMapOpen(false);
+    setCustomModal(null);
     // a "<chapter index>:<element id>" locator rather than a node id — what
     // latex.ts's xref emits for the refs that have no graph node behind them
     const locator = id.match(/^(\d+):(.*)$/);
@@ -434,6 +453,8 @@ export function ProjectView({ root, initialLocator }: { root: string; initialLoc
   }, [gotoAnchor]);
 
   const gotoChapter = useCallback((chapterIndex: number) => {
+    setMapOpen(false);
+    setCustomModal(null);
     setView('doc');
     setQuery('');
     setStatusFilter(new Set());
@@ -528,13 +549,46 @@ export function ProjectView({ root, initialLocator }: { root: string; initialLoc
 
   function onSetView(v: ViewName) {
     if (v === 'graph') {
+      setMapOpen(false);
+      setCustomModal(null);
       setGraphOpen(true);
       void loadGraph().catch(() => undefined);
       return;
     }
+    if (v === 'map' && data?.map?.enabled) {
+      setGraphOpen(false);
+      setCustomModal(null);
+      setMapError(null);
+      setMapOpen(true);
+      void Promise.all([loadAllChapters(), loadGraph()]).catch((reason) => setMapError(String(reason)));
+      return;
+    }
+    const custom = data?.customTabs?.find((tab) => tab.id === v);
+    if (custom?.presentation === 'modal') {
+      setGraphOpen(false);
+      setMapOpen(false);
+      setCustomModal(custom);
+      return;
+    }
+    if (custom && !data?.customTabs?.some((tab) => tab.id === view)) {
+      returnPage.current = { view, x: window.scrollX, y: window.scrollY };
+    }
     setView(v);
     if (v === 'biblio') void loadAllChapters().catch(() => undefined);
   }
+
+  const navigateFromCustom = useCallback((locator: string) => {
+    const entry = entries.find((item) => item.id === locator || item.label === locator);
+    if (entry) navigate(entry.id);
+    else {
+      const chapter = locator.match(/^(?:ch|chapter)-(\d+)$/i);
+      if (chapter && data?.chapters?.[Number(chapter[1]) - 1]) gotoChapter(Number(chapter[1]) - 1);
+      else {
+        const anchorLocator = locator.match(/^(\d+):(.+)$/);
+        if (anchorLocator && data?.chapters?.[Number(anchorLocator[1])]) navigate(locator);
+      }
+    }
+  }, [entries, navigate, gotoChapter, data?.chapters]);
 
   // live header stats — total/mathlib/lean/sorry counts + formalized % —
   // ported from the original's `stats()`.
@@ -602,6 +656,23 @@ export function ProjectView({ root, initialLocator }: { root: string; initialLoc
           onClose={() => setGraphOpen(false)}
         />
       )}
+      {mapOpen && (
+        graphProjectData && allChaptersLoaded && !mapError ? (
+          <Suspense fallback={<ContentModal title={data.map?.label || 'Blueprint map'} onClose={closeMap}>
+            <div className="page-loading">Preparing blueprint map…</div>
+          </ContentModal>}>
+            <MapModal data={graphProjectData} root={root} title={data.map?.label || 'Blueprint map'}
+              onClose={closeMap} onNavigate={navigateFromCustom} />
+          </Suspense>
+        ) : <ContentModal title={data.map?.label || 'Blueprint map'} onClose={closeMap}>
+          {mapError ? <div className="page-error">Couldn't load the blueprint map: {mapError}
+            <button type="button" className="gm-btn" onClick={() => onSetView('map')}>Retry</button>
+          </div> : <div className="page-loading">Preparing blueprint map…</div>}
+        </ContentModal>
+      )}
+      {customModal && <ContentModal title={customModal.label} onClose={closeCustomModal}>
+        <ContentPage html={customModal.html} className="doc" onClose={closeCustomModal} onNavigate={navigateFromCustom} />
+      </ContentModal>}
       <header className="project-header">
         <div className="project-htop">
           <a href="#/" className="project-home" title="All projects">
@@ -673,11 +744,16 @@ export function ProjectView({ root, initialLocator }: { root: string; initialLoc
           graphOpen={graphOpen}
           onSetView={onSetView}
           customTabs={customTabs}
+          map={data.map}
+          mapOpen={mapOpen}
+          customModalId={customModal?.id}
         />
 
         <main className="doc-main">
           {activeCustom ? (
-            <ContentPage html={activeCustom.html} className="doc" />
+            <ContentPage key={activeCustom.id} html={activeCustom.html} className="doc"
+              onClose={customModal || mapOpen || graphOpen ? undefined : closeCustomPage}
+              onNavigate={customModal || mapOpen || graphOpen ? undefined : navigateFromCustom} />
           ) : view === 'summary' ? (
             <Summary entries={entries} chapters={chapters} refs={refs} onSelect={navigate} onGotoChapter={gotoChapter} />
           ) : needsAllChapters && !allChaptersLoaded ? (

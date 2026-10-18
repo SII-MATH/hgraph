@@ -23,6 +23,8 @@ permissions:
 
 jobs:
   build-deploy:
+    # The private derivative keeps upstream history, without publishing a demo.
+    if: github.repository == 'AxelDlv00/hgraph'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

@@ -1,0 +1,16 @@
+Blueprint Map renderer
+
+This renderer is adapted from the interactive Map distributed by the
+frenzymath/Poincare-Conjecture project, under Apache License 2.0.
+The original project NOTICE is preserved verbatim in UPSTREAM-NOTICE.
+The original project license is preserved verbatim in LICENSE.
+
+The original map CSS and interaction code are retained. Adaptations for
+Kervaire126Main replace the embedded project data with a local JSON fetch,
+use local hgraph math assets and project references, and add links back to
+the Kervaire Blueprint. No upstream theorem data or Lean source is included.
+See PROVENANCE.md for source locations and retrieval hashes.
+
+Further adaptations in SII-MATH/hgraph provide an opt-in native overlay,
+a versioned same-origin lifecycle bridge, a host-derived native statement graph,
+and a generated manifest pointing to the bundled KaTeX assets.

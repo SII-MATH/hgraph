@@ -8,6 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "test:docstrings": "node --test tests/docstring.test.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "test:browser": "node --test tests/lifecycle.browser.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

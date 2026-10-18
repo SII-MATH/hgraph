@@ -125,10 +125,14 @@ one card (paths are relative to the project root)::
       icon: book                 # links, image, image_alt, image_offset, image_fit,
       accent: '#B4530B'          # accent/theme (this project's colours — landing
                                  # card + blueprint view), and:
+      map: true                 # optional built-in blueprint map; default false
+                                # or {enabled: true, label: Blueprint map}
       tabs:                      # extra tabs on *this project's blueprint view*
         - id: people             # (People, Roadmap, …), beside Overview/Summary/
           label: People          # Graph. Each names a .md/.html file relative to
           content: people.md     # the project root; icon: is an optional glyph.
+          presentation: modal    # optional: page (default) or modal
+          enabled: true          # false omits a tab without reading its content
 
 Per-project colours and blueprint tabs work the same in a workspace: set
 ``accent:``/``theme:`` and ``site.tabs:`` in a project's own
@@ -666,25 +670,73 @@ def _resolve_theme(project: dict, manifest: dict, base: Path) -> dict | None:
     return theme
 
 
+_RESERVED_TAB_IDS = frozenset({"projects", "overview", "summary", "graph", "doc", "biblio", "map"})
+
+
+def _map_config(value) -> dict | None:
+    """Normalise the optional built-in project map, omitting disabled maps.
+
+    ``true`` enables the default label. A mapping can set ``enabled`` (default
+    true) and ``label`` (default ``Blueprint map``); neither form needs authored
+    HTML or separate map data. Missing/null and false leave old payloads intact.
+    """
+    if value is None or value is False:
+        return None
+    if value is True:
+        return {"enabled": True, "label": "Blueprint map"}
+    if not isinstance(value, dict):
+        raise HGraphError("project site.map: must be a boolean or {enabled, label} mapping")
+    if set(value) - {"enabled", "label"}:
+        raise HGraphError("project site.map: unknown keys; expected enabled and label")
+    enabled, label = value.get("enabled", True), value.get("label", "Blueprint map")
+    if not isinstance(enabled, bool):
+        raise HGraphError("project site.map.enabled: must be a boolean")
+    if not isinstance(label, str) or not label.strip():
+        raise HGraphError("project site.map.label: must be nonempty text")
+    return {"enabled": True, "label": label.strip()} if enabled else None
+
+
 def _content_tabs(entries, *, base: Path, where: str) -> list[dict]:
-    """Normalise a ``tabs:`` list into ``[{id, label, icon?, html}]`` — the extra
+    """Normalise a ``tabs:`` list into ``[{id, label, icon?, html, presentation?}]`` — the extra
     content pages the landing page and a project's blueprint view can carry.
 
     Each entry names a ``content:`` file (``.md`` is converted, ``.html`` is used
     verbatim — the same rule as ``overview:``, via :func:`_read_overview`) and is
     KaTeX-typeset in the browser. A missing file warns and is skipped, matching
     ``_card_image``; a malformed entry is a hard error. ``icon:`` is optional and
-    only meaningful for blueprint tabs (the landing tab rail is text-only)."""
-    if not entries:
+    only meaningful for blueprint tabs (the landing tab rail is text-only).
+    ``presentation: modal`` requests an overlay; page is the default and is
+    omitted from exported payloads for compatibility. Disabled tabs do not read
+    content, but IDs, uniqueness, and presentation values are still validated.
+    Built-in route IDs are reserved even when the corresponding feature is off.
+    """
+    if entries is None:
         return []
     if not isinstance(entries, list):
         raise HGraphError(f"{where} tabs: must be a list of {{id, label, content}} entries")
     out: list[dict] = []
+    seen: set[str] = set()
     for i, t in enumerate(entries):
         if not isinstance(t, dict):
             raise HGraphError(f"{where} tabs[{i}] must be a mapping")
         tid, label, content = t.get("id"), t.get("label"), t.get("content")
-        if not tid or not label:
+        if not tid or not str(tid).strip():
+            raise HGraphError(f"{where} tabs[{i}] needs both id: and label:")
+        tid = str(tid).strip()
+        if tid in _RESERVED_TAB_IDS:
+            raise HGraphError(f"{where} tab {tid!r} uses a reserved built-in id")
+        if tid in seen:
+            raise HGraphError(f"{where} tabs: duplicate id {tid!r}")
+        seen.add(tid)
+        enabled = t.get("enabled", True)
+        if not isinstance(enabled, bool):
+            raise HGraphError(f"{where} tab {tid!r} enabled: must be a boolean")
+        presentation = t.get("presentation", "page")
+        if presentation not in ("page", "modal"):
+            raise HGraphError(f"{where} tab {tid!r} presentation: must be page or modal")
+        if not enabled:
+            continue
+        if not label:
             raise HGraphError(f"{where} tabs[{i}] needs both id: and label:")
         if not content:
             raise HGraphError(f"{where} tab {tid!r} needs a content: file")
@@ -692,11 +744,22 @@ def _content_tabs(entries, *, base: Path, where: str) -> list[dict]:
         if not path.exists():
             print(f"warning: {where} tab {tid!r} content not found, ignoring: {path}")
             continue
-        tab = {"id": str(tid), "label": str(label), "html": _read_overview(path)}
+        tab = {"id": tid, "label": str(label), "html": _read_overview(path)}
         if t.get("icon"):
             tab["icon"] = str(t["icon"])
+        if presentation == "modal":
+            tab["presentation"] = "modal"
         out.append(tab)
     return out
+
+
+def _project_site_options(site_cfg: dict, *, base: Path) -> dict:
+    """Shared project chrome for static exports and live lazy/full payloads."""
+    map_config = _map_config(site_cfg.get("map"))
+    result = {"customTabs": _content_tabs(site_cfg.get("tabs"), base=base, where="project")}
+    if map_config is not None:
+        result["map"] = map_config
+    return result
 
 
 def _landing_tabs(manifest: dict, base: Path) -> list[dict]:

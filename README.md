@@ -14,6 +14,13 @@
 
 ---
 
+This is the private SII-MATH derivative of
+[AxelDlv00/hgraph](https://github.com/AxelDlv00/hgraph), based on upstream commit
+`88e9c2877102b4984029874a8a51e37f9474dfa6`. It retains upstream history and the
+Apache-2.0 license. The optional native chapter map and custom-page lifecycle
+API are documented in [Custom pages and the native map](docs/CUSTOM_PAGES.md).
+For local development, keep the original repository as the `upstream` remote.
+
 `hgraph` connects informal mathematics, Lean declarations, proofs, sources,
 comments, and reviews in a graph that both people and agents can edit. Each
 node and edge is a Markdown file with YAML metadata: there is no database or

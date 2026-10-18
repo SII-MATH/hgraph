@@ -29,6 +29,29 @@ function trimFontFallbacks(): Plugin {
   }
 }
 
+// The standalone map iframe imports the same built KaTeX module as React.
+// Publish the actual asset names instead of scraping a minified entry bundle.
+function mapMathAssets(): Plugin {
+  return {
+    name: 'map-math-assets',
+    configureServer(server) {
+      server.middlewares.use('/blueprint-map/math-assets.json', (_request, response) => {
+        response.setHeader('Content-Type', 'application/json');
+        response.end(JSON.stringify({ js: '../src/katexLoader.ts', css: '../node_modules/katex/dist/katex.min.css' }));
+      });
+    },
+    generateBundle(_options, bundle) {
+      const module = Object.values(bundle).find((file) => file.type === 'chunk'
+        && file.facadeModuleId?.endsWith('/src/katexLoader.ts'));
+      if (!module || module.type !== 'chunk') throw new Error('Native map KaTeX module is missing');
+      const css = [...((module as typeof module & { viteMetadata?: { importedCss: Set<string> } }).viteMetadata?.importedCss || [])][0];
+      if (!css) throw new Error('Native map KaTeX stylesheet is missing');
+      this.emitFile({ type: 'asset', fileName: 'blueprint-map/math-assets.json',
+        source: JSON.stringify({ js: '../' + module.fileName, css: '../' + css }) });
+    },
+  };
+}
+
 // base: './' — the built assets are referenced with relative paths, so the
 // same build works whether it's opened at the repo root, one level under a
 // workspace landing page, live via `hgraph serve`, or on GitHub Pages.
@@ -38,7 +61,7 @@ function trimFontFallbacks(): Plugin {
 // `npm run build` here is a dev-time step for whoever edits the frontend;
 // end users of `pip install hgraph` never need Node.
 export default defineConfig({
-  plugins: [react(), trimFontFallbacks()],
+  plugins: [react(), trimFontFallbacks(), mapMathAssets()],
   base: './',
   build: {
     outDir: '../hgraph/webui',

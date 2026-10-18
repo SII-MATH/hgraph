@@ -1,8 +1,9 @@
-import { useState } from 'react';
-import type { SiteData } from '../types';
+import { useCallback, useRef, useState } from 'react';
+import type { ContentTab, SiteData } from '../types';
 import { themeFor } from '../theme';
 import { ProjectCard } from './ProjectCard';
 import { ContentPage } from './ContentPage';
+import { ContentModal } from './ContentModal';
 
 /** The workspace totals shown in the header — the same quantities a project's
  * own header shows, summed over every project on the page. */
@@ -28,10 +29,27 @@ export function Landing({ data }: { data: SiteData }) {
     ...contentTabs.map((c) => ({ id: c.id, label: c.label })),
   ];
   const [tab, setTab] = useState('projects');
+  const [modal, setModal] = useState<ContentTab | null>(null);
+  const previous = useRef({ tab: 'projects', x: 0, y: 0 });
+  const closeModal = useCallback(() => setModal(null), []);
+  const closePage = useCallback(() => {
+    const saved = previous.current;
+    setTab(saved.tab);
+    requestAnimationFrame(() => window.scrollTo(saved.x, saved.y));
+  }, []);
   const activeContentTab = contentTabs.find((c) => c.id === tab);
+  function selectTab(id: string) {
+    const content = contentTabs.find((item) => item.id === id);
+    if (content?.presentation === 'modal') { setModal(content); return; }
+    if (content && !activeContentTab) previous.current = { tab, x: window.scrollX, y: window.scrollY };
+    setTab(id);
+  }
 
   return (
     <>
+      {modal && <ContentModal title={modal.label} onClose={closeModal}>
+        <ContentPage html={modal.html} className="doc" onClose={closeModal} />
+      </ContentModal>}
       <header className="site-header">
         <div className="site-htop">
           <span className="site-brand">{data.brand || data.title}</span>
@@ -68,8 +86,8 @@ export function Landing({ data }: { data: SiteData }) {
             {railTabs.map((rt) => (
               <a
                 key={rt.id}
-                className={`landing-tab${tab === rt.id ? ' on' : ''}`}
-                onClick={() => setTab(rt.id)}
+                className={`landing-tab${tab === rt.id || modal?.id === rt.id ? ' on' : ''}`}
+                onClick={() => selectTab(rt.id)}
               >
                 {rt.label}
               </a>
@@ -102,7 +120,8 @@ export function Landing({ data }: { data: SiteData }) {
           })}
 
         {tab === 'overview' && hasOverview && <ContentPage html={data.overviewHtml!} />}
-        {activeContentTab && <ContentPage html={activeContentTab.html} />}
+        {activeContentTab && <ContentPage key={activeContentTab.id} html={activeContentTab.html}
+          onClose={modal ? undefined : closePage} />}
 
         <footer
           className="footer"

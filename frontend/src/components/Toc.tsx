@@ -12,7 +12,7 @@ function chapterStmtCount(ch: Chapter): number {
  *  content views whose ids are arbitrary strings, so `ViewName` stays open —
  *  the `(string & {})` keeps literal autocomplete for the built-ins while
  *  admitting any custom tab id. */
-export type BuiltinView = 'overview' | 'doc' | 'summary' | 'biblio' | 'graph';
+export type BuiltinView = 'overview' | 'doc' | 'summary' | 'biblio' | 'graph' | 'map';
 export type ViewName = BuiltinView | (string & {});
 
 const NAV_LINKS: { view: BuiltinView; icon: string; label: string }[] = [
@@ -40,6 +40,9 @@ export function Toc({
   graphOpen,
   onSetView,
   customTabs = [],
+  map,
+  mapOpen = false,
+  customModalId,
 }: {
   chapters: Chapter[];
   refs: Record<string, RefEntry>;
@@ -54,6 +57,9 @@ export function Toc({
   graphOpen: boolean;
   onSetView: (v: ViewName) => void;
   customTabs?: ContentTab[];
+  map?: { enabled: boolean; label: string };
+  mapOpen?: boolean;
+  customModalId?: string | null;
 }) {
   const [openCh, setOpenCh] = useState<Set<number>>(new Set());
 
@@ -96,13 +102,16 @@ export function Toc({
         {customTabs.map((c) => (
           <a
             key={c.id}
-            className={`navlink${view === c.id ? ' on' : ''}`}
+            className={`navlink${(view === c.id || customModalId === c.id) ? ' on' : ''}`}
             onClick={() => onSetView(c.id)}
           >
             <span className="ni">{c.icon || CUSTOM_TAB_ICON}</span>
             {c.label}
           </a>
         ))}
+        {map?.enabled && <button type="button" className={`navlink${mapOpen ? ' on' : ''}`} onClick={() => onSetView('map')}>
+          <span className="ni">▦</span>{map.label}
+        </button>}
       </div>
       {chapters.length > 0 && <div className="navsec">Chapters</div>}
       {chapters.map((ch, i) => {

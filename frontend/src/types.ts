@@ -20,6 +20,8 @@ export interface ContentTab {
   /** lucide-react icon name (blueprint tabs only); a default glyph if unset */
   icon?: string;
   html: string;
+  /** Project tabs may open over the current view without replacing it. */
+  presentation?: 'page' | 'modal';
 }
 
 export interface ProjectStats {
@@ -127,6 +129,7 @@ export interface Entry {
   label: string | null;
   title: string | null;
   chapter: string | null;
+  ref?: string | null;
   kind: string; // content_type
   body: string;
   lean_status: 'lean_ok' | 'mathlib_ok' | 'sorry' | 'empty';
@@ -256,6 +259,8 @@ export interface ProjectData {
   /** static content tabs added to the blueprint rail — the project's
    *  `hgraph/config.yaml` -> `site.tabs:` */
   customTabs?: ContentTab[];
+  /** Opt-in built-in chapter map; omitted on existing/default exports. */
+  map?: { enabled: boolean; label: string };
   gvsvg?: Record<string, string>;
   /** Versioned incremental payload locations. Absent on older monolithic
    *  exports, which the frontend still accepts through data.json. */
