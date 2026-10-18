@@ -172,6 +172,35 @@ await test('static lifecycle under a preserved /proxy/PORT/ prefix', async (t) =
     assert.equal(await nav(page, 'Blueprint map').count(), 0);
     assert.equal(await page.locator('iframe.native-map-frame').count(), 0);
   });
+  await t.test('Map navigation matches native typography, glyphs, hover and selection', async () => {
+    await reader(page);
+    const graph = nav(page, 'Dependency graph');
+    const map = nav(page, 'Blueprint map');
+    const appearance = (locator) => locator.evaluate((element) => {
+      const style = getComputedStyle(element);
+      const icon = getComputedStyle(element.querySelector('.ni'));
+      return { font: style.font, color: style.color, background: style.backgroundColor,
+        padding: style.padding, gap: style.gap, radius: style.borderRadius,
+        iconFont: icon.font, iconColor: icon.color, iconWidth: icon.width };
+    });
+    await page.mouse.move(700, 20);
+    assert.deepEqual(await appearance(map), await appearance(graph));
+    await graph.hover();
+    const hovered = await appearance(graph);
+    await map.hover();
+    assert.deepEqual(await appearance(map), hovered);
+    // Show the same selected rail state without letting an overlay cover it.
+    await page.mouse.move(700, 20);
+    await graph.evaluate((element) => element.classList.add('on'));
+    await map.evaluate((element) => element.classList.add('on'));
+    try {
+      assert.deepEqual(await appearance(map), await appearance(graph));
+      assert.notEqual((await appearance(map)).background, hovered.background);
+    } finally {
+      await graph.evaluate((element) => element.classList.remove('on'));
+      await map.evaluate((element) => element.classList.remove('on'));
+    }
+  });
   await t.test('native Map receives every node, preserves statuses, and renders local math', async () => {
     const state = await reader(page);
     const frame = await mapFrame(page);

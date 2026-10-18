@@ -653,7 +653,7 @@ a {
 .content-modal { outline: none; }
 .native-map-frame { display: block; flex: 1; width: 100%; min-height: 0; border: 0; }
 .content-modal > .doc { flex: 1; overflow: auto; padding: 20px 32px; }
-button.navlink { width: 100%; border: 0; background: transparent; text-align: left; font: inherit; cursor: pointer; }
+:where(button).navlink { width: 100%; border: 0; background: transparent; text-align: left; font-family: inherit; line-height: inherit; cursor: pointer; }
 .gm-wrap { position: relative; flex: 1; min-width: 0; overflow: hidden; }
 .gm-wrap .gvwrap { height: 100%; display: flex; flex-direction: column; border: none; border-radius: 0; }
 .gm-wrap .gv-canvas { flex: 1; height: auto; }
