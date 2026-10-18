@@ -50,3 +50,9 @@ custom-page bridge, closes through `hgraph.close()` without refreshing the
 parent, and navigates through `hgraph.navigate()`. KaTeX paths come from a
 manifest generated alongside the frontend bundle. The original attribution,
 license, notices and extraction hash above remain preserved.
+
+The native integration now loads the same compiled hgraph stylesheet as the
+reader, uses its typography, control classes, status colors and project accent,
+and obtains SVG icons from the same lucide-react components at build time.
+Node labels use the native plain-TeX formatter; detail titles and statements
+share the bundled KaTeX renderer.

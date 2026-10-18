@@ -1,4 +1,5 @@
 import type { Entry, ProjectData } from './types';
+import { plainTex } from './latex';
 
 export interface MapNode {
   id: string; label: string; title: string; display_title: string; body: string;
@@ -41,7 +42,7 @@ export function buildMapData(project: ProjectData, root: string) {
       const label = entry.label || entry.id;
       const node: MapNode = {
         id: entry.id, label, title: entry.title || label,
-        display_title: `${block.abbr} ${block.num}: ${entry.title || label}`,
+        display_title: `${block.abbr} ${block.num}: ${plainTex(entry.title || label)}`,
         body: entry.body, chapter: chapter.title, section: section.title, kind: entry.kind,
         status: entry.lean_status, order: nodes.length,
         ref: entry.ref || '', sketch: !!entry.sketch,
@@ -65,7 +66,7 @@ export function buildMapData(project: ProjectData, root: string) {
   const edges = [...edgePairs.values()].sort((a, b) => a.from.localeCompare(b.from) || a.to.localeCompare(b.to));
   const statuses: Record<string, number> = {};
   for (const node of nodes) statuses[node.status] = (statuses[node.status] || 0) + 1;
-  return { title: project.title, project_route: route, chapters, nodes, edges,
+  return { title: project.title, project_route: route, theme: project.theme, chapters, nodes, edges,
     important_labels: [], macros: project.macros || {}, refs: project.refs || {}, bib: project.bib || [],
     stats: { nodes: nodes.length, edges: edges.length, chapters: chapters.length, important: 0, statuses } };
 }

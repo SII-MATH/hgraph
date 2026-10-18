@@ -11,16 +11,12 @@ Source, attribution, and modification notes: ./PROVENANCE.md and ./NOTICE.
   <title>Blueprint map</title>
   <style>
     :root {
-      --ink: #172235;
-      --muted: #64748b;
-      --line: #d7dee8;
-      --soft: #f4f7fb;
-      --panel: #ffffff;
-      --blue: #3568b8;
-      --blue-soft: #e9f0fd;
-      --green: #28845e;
-      --amber: #ba6d18;
-      --gray: #9aa7b7;
+      --ink: var(--heading);
+      --blue: var(--accent);
+      --blue-soft: color-mix(in srgb, var(--accent) 8%, var(--panel));
+      --green: var(--lean);
+      --amber: var(--sorry);
+      --gray: var(--empty);
       --layer-in-1: #dc2626;
       --layer-in-2: #ea580c;
       --layer-in-3: #ca8a04;
@@ -37,53 +33,48 @@ Source, attribution, and modification notes: ./PROVENANCE.md and ./NOTICE.
       --layer-out-6: #a21caf;
       --layer-out-7: #be185d;
       --layer-out-8: #9f1239;
-      --shadow: 0 12px 28px rgba(30, 48, 75, .08);
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       color: var(--ink);
-      background: var(--soft);
+      background: var(--bg);
     }
     * { box-sizing: border-box; }
-    html, body { margin: 0; min-height: 100%; background: var(--soft); }
+    html, body { margin: 0; min-height: 100%; background: var(--bg); }
     body { overflow: hidden; }
     button, input, select { font: inherit; }
     button { color: inherit; }
-    .map-app { height: 100vh; height: 100dvh; display: flex; flex-direction: column; background: var(--soft); }
-    .map-toolbar {
-      z-index: 20; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex: 0 0 auto;
-      padding: 10px 16px; border-bottom: 1px solid var(--line); background: rgba(255,255,255,.95);
-      box-shadow: 0 2px 12px rgba(25, 43, 68, .05); min-height: 52px;
-    }
+    .map-app { height: 100vh; height: 100dvh; display: flex; flex-direction: column; background: var(--bg); }
+    .map-toolbar { z-index: 20; flex: 0 0 auto; min-height: 52px; box-shadow: none; }
     .map-title { margin-right: 4px; flex: 0 0 auto; white-space: nowrap; }
-    .map-title h1 {
-      margin: 0; font-size: 16px; line-height: 1; letter-spacing: 0;
-      display: inline; font-weight: 700;
-    }
-    .map-stat { color: var(--muted); font-size: 11px; overflow-wrap: anywhere; flex: 0 1 auto; }
+    .map-title h2 { white-space: nowrap; }
+    .map-stat { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; flex: 0 1 auto; }
     .map-toolbar [hidden] { display: none; }
-    .map-control { height: 30px; border: 1px solid var(--line); border-radius: 6px; background: #fff; flex: 0 0 auto; }
-    .map-search { width: 200px; min-width: 0; max-width: 100%; padding: 0 10px; color: var(--ink); outline: none; }
-    .map-search:focus { border-color: #7ba2e1; box-shadow: 0 0 0 3px rgba(53,104,184,.13); }
-    .map-select { padding: 0 8px; color: var(--ink); max-width: 220px; min-width: 0; }
+    .map-control { flex: 0 0 auto; }
+    .map-search { width: 160px; min-width: 0; max-width: 100%; outline: none; }
+    .map-search:focus { border-color: var(--accent); }
+    .map-select { max-width: 220px; min-width: 0; }
+    #map-status { width: 160px; }
+    #map-chapter { max-width: 200px; }
     .map-zoom { display: inline-flex; align-items: center; gap: 4px; }
-    #map-zoom-level { width: 42px; text-align: center; font-size: 11px; }
-    .map-button { min-width: 30px; padding: 0 9px; cursor: pointer; }
-    .map-button:hover { border-color: #92add7; background: var(--blue-soft); }
-    .map-toggle { display: inline-flex; align-items: center; gap: 5px; padding: 0 8px; color: var(--muted); font-size: 10px; white-space: nowrap; }
-    .map-toggle input { accent-color: var(--blue); }
+    #map-zoom-level { width: 44px; text-align: center; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+    .map-button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; align-self: center; }
+    [data-map-icon] { display: inline-flex; align-items: center; }
+    .map-button svg, .node-preview-toggle svg, .detail-source-ref svg { flex: none; width: 16px; height: 16px; }
+    .map-zoom .map-button { padding: 7px 9px; }
+    .map-toggle { display: inline-flex; align-items: center; gap: 5px; padding: 0 8px; color: var(--muted); font-size: 12px; white-space: nowrap; }
+    .map-toggle input { accent-color: var(--accent); }
     .map-spacer { flex: 1 1 auto; min-width: 8px; }
-    .map-legend { display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: 10px; white-space: nowrap; flex: 0 0 auto; }
-    .legend-dot { width: 8px; height: 8px; display: inline-block; border-radius: 50%; margin-right: 3px; }
-    .legend-mathlib { background: #2f6fbd; }
-    .legend-ok { background: var(--green); }
-    .legend-pending { background: var(--gray); }
-    .legend-sorry { background: var(--amber); }
+    .map-legend { display: flex; gap: 10px; align-items: center; color: var(--muted); font-size: 11.5px; white-space: nowrap; flex: 0 0 auto; }
+    .legend-dot { width: 8px; height: 8px; display: inline-block; border-radius: 50%; margin-right: 4px; }
+    .legend-mathlib { background: var(--mathlib); }
+    .legend-ok { background: var(--lean); }
+    .legend-pending { background: var(--empty); }
+    .legend-sorry { background: var(--sorry); }
     .map-depth-legend { gap: 7px; }
-    .layer-legend-label { color: #43556f; font-weight: 750; }
+    .layer-legend-label { color: var(--muted); font-weight: 600; }
     .layer-legend-group { display: inline-flex; align-items: center; gap: 3px; }
-    .layer-legend-direction { margin-right: 1px; font-weight: 800; }
+    .layer-legend-direction { margin-right: 1px; font-weight: 600; }
     .layer-legend-direction.in { color: #9f1239; }
     .layer-legend-direction.out { color: #0f766e; }
-    .layer-swatch { width: 17px; height: 17px; display: inline-grid; place-items: center; border: 1px solid var(--layer-color); border-radius: 50%; background: color-mix(in srgb, var(--layer-color) 13%, #fff); color: var(--layer-color); font-size: 8px; font-weight: 800; line-height: 1; }
+    .layer-swatch { width: 17px; height: 17px; display: inline-grid; place-items: center; border: 1px solid var(--layer-color); border-radius: 5px; background: color-mix(in srgb, var(--layer-color) 10%, var(--panel)); color: var(--layer-color); font-size: 9px; font-weight: 600; line-height: 1; }
     .layer-in-1 { --layer-color: var(--layer-in-1); }
     .layer-in-2 { --layer-color: var(--layer-in-2); }
     .layer-in-3 { --layer-color: var(--layer-in-3); }
@@ -105,8 +96,8 @@ Source, attribution, and modification notes: ./PROVENANCE.md and ./NOTICE.
     .map-scene { position: relative; min-width: 100%; min-height: 100%; }
     .map-canvas { position: absolute; left: 0; top: 0; display: flex; align-items: flex-start; gap: 18px; width: max-content; min-height: 100%; padding: 22px 24px 42px; transform-origin: top left; }
     .edge-layer { position: absolute; left: 0; top: 0; z-index: 0; overflow: visible; pointer-events: none; }
-    .edge-layer > path.edge-path { fill: none; stroke: #8fb1df; stroke-width: 1.25; opacity: .72; stroke-linecap: round; stroke-linejoin: round; }
-    .edge-layer > path.edge-cross { stroke: #6f95cb; stroke-width: 1.55; opacity: .78; }
+    .edge-layer > path.edge-path { fill: none; stroke: var(--muted); stroke-width: 1.25; opacity: .72; stroke-linecap: round; stroke-linejoin: round; }
+    .edge-layer > path.edge-cross { stroke: var(--muted); stroke-width: 1.55; opacity: .78; }
     .edge-arrowhead { opacity: .72; }
     .edge-arrowhead.edge-cross { opacity: .78; }
     .edge-layer.muted > path, .edge-layer.muted > .edge-arrowhead { opacity: .1; }
@@ -116,55 +107,54 @@ Source, attribution, and modification notes: ./PROVENANCE.md and ./NOTICE.
       filter: drop-shadow(0 0 1.5px #fff);
     }
     .edge-layer-focus > .edge-arrowhead { opacity: 1; filter: drop-shadow(0 0 1.5px #fff); }
-    .chapter-column { position: relative; z-index: 1; flex: 0 0 340px; min-height: 360px; border: 1px solid var(--chapter-line, #b8cbe7); border-radius: 8px; background: rgba(255,255,255,.64); box-shadow: 0 5px 16px rgba(30, 48, 75, .045); }
-    .chapter-column:nth-of-type(2) { --chapter-line: #c6bde4; }
-    .chapter-column:nth-of-type(3) { --chapter-line: #b4d2bd; }
-    .chapter-column:nth-of-type(4) { --chapter-line: #dfc89d; }
-    .chapter-column:nth-of-type(5) { --chapter-line: #aad4d1; }
-    .chapter-head { padding: 13px 15px 11px; border-bottom: 1px solid rgba(140, 161, 190, .27); }
-    .chapter-kicker { color: var(--chapter-color, #3868ad); font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+    .chapter-column { position: relative; z-index: 1; flex: 0 0 340px; min-height: 360px; border: 1px solid var(--line); border-radius: 11px; background: var(--panel); box-shadow: var(--shadow); }
+    .chapter-head { padding: 13px 15px 11px; border-bottom: 1px solid var(--line); }
+    .chapter-kicker { color: var(--accent); font-size: 11.5px; font-weight: 600; letter-spacing: 0; }
     .chapter-head h2 { margin: 4px 0 0; font-size: 15px; line-height: 1.25; letter-spacing: 0; }
-    .chapter-count { margin-top: 4px; color: var(--muted); font-size: 10px; }
+    .chapter-count { margin-top: 4px; color: var(--muted); font-size: 12px; }
     .chapter-body { display: flex; flex-direction: column; gap: 12px; padding: 12px 10px 14px; }
-    .section-group { padding: 9px; border: 1px solid rgba(190, 201, 216, .62); border-radius: 7px; background: rgba(255,255,255,.77); }
+    .section-group { padding: 9px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
     .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin: 0 1px 8px; }
-    .section-head h3 { margin: 0; color: #43556f; font-size: 10.5px; line-height: 1.3; font-weight: 750; }
-    .section-head span { color: #8b99ab; font-size: 9px; white-space: nowrap; }
+    .section-head h3 { margin: 0; color: var(--heading); font-size: 12.5px; line-height: 1.4; font-weight: 600; }
+    .section-head span { color: var(--muted); font-size: 11px; white-space: nowrap; }
     .node-list { display: flex; flex-direction: column; gap: 7px; padding-right: 22px; }
-    .node-card { --node-border: #8d9aaa; --node-fill: #f2f4f7; --node-text: #485569; position: relative; display: block; width: 100%; min-height: 38px; padding: 8px 36px 8px 10px; border: 1px solid var(--node-border); border-left: 4px solid var(--node-border); border-radius: 6px; background: var(--node-fill); color: var(--node-text); text-align: left; box-shadow: 0 2px 4px rgba(25, 43, 68, .06); cursor: pointer; transition: border-color .15s, box-shadow .15s, opacity .15s; }
-    .node-card[data-status="mathlib_ok"] { --node-border: #2f6fbd; --node-fill: #e8f1fc; --node-text: #17477d; }
-    .node-card[data-status="lean_ok"] { --node-border: #28845e; --node-fill: #e6f4ec; --node-text: #175c40; }
-    .node-card[data-status="sorry"] { --node-border: #ba6d18; --node-fill: #fff1df; --node-text: #82470c; }
-    .node-card.selected { border-color: #2c5b9f; box-shadow: 0 0 0 2px rgba(53,104,184,.28), 0 4px 12px rgba(38,82,144,.17); }
+    .node-card { --node-border: var(--empty); --node-fill: var(--empty-bg); --node-text: var(--heading); position: relative; display: block; width: 100%; min-height: 38px; padding: 8px 36px 8px 10px; border: 1px solid var(--node-border); border-left: 3px solid var(--node-border); border-radius: 8px; background: var(--node-fill); color: var(--node-text); text-align: left; box-shadow: none; cursor: pointer; transition: border-color .15s, box-shadow .15s, opacity .15s; }
+    .node-card[data-status="mathlib_ok"] { --node-border: var(--mathlib); --node-fill: var(--mathlib-bg); }
+    .node-card[data-status="lean_ok"] { --node-border: var(--lean); --node-fill: var(--lean-bg); }
+    .node-card[data-status="sorry"] { --node-border: var(--sorry); --node-fill: var(--sorry-bg); }
+    .node-card.selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
     .node-card.layer-active .node-title { padding-right: 58px; }
     /* Dependency depth is carried by the badge only; the node keeps its Lean status colors. */
-    .node-depth-badge { display: none; position: absolute; top: 5px; right: 35px; min-width: 48px; padding: 2px 5px; border: 1px solid color-mix(in srgb, var(--layer-color) 72%, #fff); border-radius: 4px; background: color-mix(in srgb, var(--layer-color) 12%, #fff); color: var(--layer-color); font-size: 8px; font-weight: 850; line-height: 1.1; text-align: center; white-space: nowrap; }
+    .node-depth-badge { display: none; position: absolute; top: 5px; right: 35px; min-width: 48px; padding: 2px 5px; border: 1px solid color-mix(in srgb, var(--layer-color) 72%, #fff); border-radius: 4px; background: color-mix(in srgb, var(--layer-color) 12%, #fff); color: var(--layer-color); font-size: 10px; font-weight: 600; line-height: 1.1; text-align: center; white-space: nowrap; }
     .node-card.layer-active .node-depth-badge { display: inline-block; }
-    .node-card:focus-visible { outline: 2px solid #2c5b9f; outline-offset: 2px; }
+    .node-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
     .node-card.dim { opacity: .17; }
-    .node-card.match { border-color: #2c5b9f; box-shadow: 0 0 0 2px rgba(53,104,184,.17); }
-    .node-title { display: block; color: inherit; font-size: 10.5px; font-weight: 750; line-height: 1.3; }
-    .node-preview-toggle { position: absolute; top: 50%; right: 5px; width: 25px; height: 25px; padding: 0; display: grid; place-items: center; border: 1px solid color-mix(in srgb, var(--node-border) 55%, #fff); border-radius: 4px; background: rgba(255,255,255,.82); color: var(--node-text); font-size: 19px; line-height: 1; cursor: pointer; transform: translateY(-50%); transition: transform .15s, background .15s, border-color .15s; }
+    .node-card.match { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 20%, transparent); }
+    .node-title { display: block; color: inherit; font-size: 12.5px; font-weight: 600; line-height: 1.4; }
+    .node-preview-toggle { position: absolute; top: 50%; right: 5px; width: 25px; height: 25px; padding: 0; display: grid; place-items: center; border: 1px solid color-mix(in srgb, var(--node-border) 55%, #fff); border-radius: 6px; background: var(--panel); color: var(--node-text); font-size: 19px; line-height: 1; cursor: pointer; transform: translateY(-50%); transition: transform .15s, background .15s, border-color .15s; }
     .node-preview-toggle:hover, .node-preview-toggle:focus-visible { border-color: var(--node-border); background: #fff; outline: none; }
     .node-card.preview-open .node-preview-toggle { transform: translateY(-50%) rotate(90deg); }
     .map-empty { width: min(520px, calc(100vw - 48px)); margin: 70px auto; padding: 30px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--muted); text-align: center; }
-    .detail-panel { position: fixed; z-index: 30; left: 0; top: 0; width: min(430px, calc(100vw - 24px)); max-height: min(560px, calc(100vh - 24px)); overflow: auto; display: none; padding: 17px; border: 1px solid #cbd6e3; border-radius: 9px; background: rgba(255,255,255,.98); box-shadow: 0 18px 42px rgba(25, 43, 68, .2); }
+    .detail-panel { position: fixed; z-index: 30; left: 0; top: 0; width: min(430px, calc(100vw - 24px)); max-height: min(560px, calc(100vh - 24px)); overflow: auto; display: none; padding: 16px; border-color: var(--line); border-radius: 11px; background: var(--panel); box-shadow: var(--shadow); }
     .detail-panel.open { display: block; }
-    .detail-kind { color: var(--blue); font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
-    .detail-panel h2 { margin: 7px 0 5px; font-size: 18px; line-height: 1.25; }
-    .detail-label { color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 10px; overflow-wrap: anywhere; }
-    .detail-grid { display: grid; grid-template-columns: 76px 1fr; gap: 5px 9px; margin: 14px 0; font-size: 11px; }
+    .detail-kind { display: inline-block; }
+    .detail-panel h2 { margin: 10px 0 5px; font: 600 16px/1.4 var(--sans); }
+    .detail-label { color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px; overflow-wrap: anywhere; }
+    .detail-grid { display: grid; grid-template-columns: 76px 1fr; gap: 5px 9px; margin: 14px 0; font-size: 12.5px; }
     .detail-grid dt { color: var(--muted); }
     .detail-grid dd { margin: 0; color: var(--ink); }
-    .detail-body { padding: 11px; border: 1px solid #e1e7ef; border-radius: 6px; background: #f8fafc; color: #44546b; font-size: 11px; line-height: 1.55; }
-    .detail-source-ref { margin-bottom: 9px; color: var(--muted); font-size: 10px; }
+    .detail-body { padding: 0; color: var(--heading); font-size: 14.5px; line-height: 1.7; }
+    .detail-source-ref { margin-bottom: 12px; }
+    .detail-source-ref a { display: inline-flex; align-items: center; gap: 5px; }
+    .detail-body a, .detail-links a { color: var(--accent); }
+    .detail-body a:hover, .detail-links a:hover { text-decoration: underline; }
     .detail-statement { white-space: pre-wrap; overflow-wrap: anywhere; }
     .detail-body .katex-display { max-width: 100%; overflow-x: auto; overflow-y: hidden; }
     .detail-links { margin-top: 14px; }
-    .detail-links h3 { margin: 0 0 6px; color: #43556f; font-size: 11px; }
-    .detail-links.dependencies h3 { color: #7556a8; }
-    .detail-links.used-by h3 { color: #168176; }
-    .detail-links ul { margin: 0; padding-left: 17px; color: #52647c; font-size: 10px; line-height: 1.55; }
+    .detail-links h3 { margin: 0 0 6px; color: var(--heading); font-size: 12.5px; }
+    .detail-links.dependencies h3 { color: var(--accent); }
+    .detail-links.used-by h3 { color: var(--accent); }
+    .detail-links ul { margin: 0; padding-left: 17px; color: var(--muted); font-size: 12.5px; line-height: 1.55; }
     .detail-links li + li { margin-top: 3px; }
     @media (max-width: 720px) {
       .map-toolbar { padding: 8px 10px; gap: 6px; }
@@ -172,7 +162,7 @@ Source, attribution, and modification notes: ./PROVENANCE.md and ./NOTICE.
       #map-close { order: -2; margin-left: auto; }
       .map-stat { order: -1; flex-basis: 100%; }
       .map-spacer { display: none; }
-      .map-title h1::after { content: ""; }
+      .map-title h2::after { content: ""; }
       .map-search { width: 100%; }
       .map-select { flex: 1 1 140px; max-width: 100%; font-size: 12px; }
       .map-legend { display: none; }
@@ -183,28 +173,28 @@ Source, attribution, and modification notes: ./PROVENANCE.md and ./NOTICE.
 </head>
 <body>
   <main class="map-app">
-    <header class="map-toolbar">
+    <header class="gm-bar map-toolbar">
       <div class="map-title">
-        <h1>Blueprint map</h1>
+        <h2>Blueprint map</h2>
       </div>
       <span class="map-stat" id="map-stat"></span>
       <span class="map-spacer"></span>
-      <input class="map-control map-search" id="map-search" type="search" placeholder="Find a statement..." aria-label="Find a statement">
-      <select class="map-control map-select" id="map-status" aria-label="Filter by source annotation">
+      <input class="gm-q map-control map-search" id="map-search" type="search" placeholder="Find a statement..." aria-label="Find a statement">
+      <select class="gm-sel map-control map-select" id="map-status" aria-label="Filter by source annotation">
         <option value="all">All statuses</option>
         <option value="lean_ok">lean ok</option>
         <option value="mathlib_ok">mathlib ok</option>
         <option value="sorry">not formalized (admission)</option>
         <option value="empty">not formalized</option>
       </select>
-      <select class="map-control map-select" id="map-chapter" aria-label="Focus a chapter">
+      <select class="gm-sel map-control map-select" id="map-chapter" aria-label="Focus a chapter">
         <option value="all">All chapters</option>
       </select>
       <label class="map-control map-toggle" title="Show selected milestones">
         <input id="map-minimized" type="checkbox" aria-label="Show selected milestones only">
         <span>Important nodes</span>
       </label>
-      <select class="map-control map-select" id="map-depth" aria-label="Dependency layers around selected node">
+      <select class="gm-sel map-control map-select" id="map-depth" aria-label="Dependency layers around selected node">
         <option value="1">1 layer</option>
         <option value="2">2 layers</option>
         <option value="3" selected>3 layers</option>
@@ -213,13 +203,13 @@ Source, attribution, and modification notes: ./PROVENANCE.md and ./NOTICE.
         <option value="6">6 layers</option>
         <option value="all">All layers</option>
       </select>
-      <button class="map-control map-button" id="map-close" type="button" title="Return to the blueprint" aria-label="Return to the blueprint">×</button>
       <div class="map-zoom" role="group" aria-label="Map zoom">
-        <button class="map-control map-button" id="map-zoom-out" type="button" title="Zoom out" aria-label="Zoom out">−</button>
+        <button class="gm-btn map-control map-button" id="map-zoom-out" type="button" title="Zoom out" aria-label="Zoom out"><span data-map-icon="minus"></span></button>
         <output id="map-zoom-level" aria-live="polite">100%</output>
-        <button class="map-control map-button" id="map-zoom-in" type="button" title="Zoom in" aria-label="Zoom in">+</button>
+        <button class="gm-btn map-control map-button" id="map-zoom-in" type="button" title="Zoom in" aria-label="Zoom in"><span data-map-icon="plus"></span></button>
       </div>
-      <button class="map-control map-button" id="map-fit" type="button" title="Fit the map to the available width" aria-label="Fit map">Fit</button>
+      <button class="gm-btn map-control map-button" id="map-fit" type="button" title="Fit the map to the available width" aria-label="Fit map"><span data-map-icon="maximize"></span><span>Fit</span></button>
+      <button class="gm-btn map-control map-button" id="map-close" type="button" title="Return to the blueprint" aria-label="Return to the blueprint"><span data-map-icon="x"></span><span>Close</span></button>
       <div class="map-legend" aria-label="Source annotation legend">
         <span><i class="legend-dot legend-mathlib"></i>mathlib ok</span>
         <span><i class="legend-dot legend-ok"></i>lean ok</span>
@@ -240,8 +230,8 @@ Source, attribution, and modification notes: ./PROVENANCE.md and ./NOTICE.
         </div>
       </div>
     </section>
-    <aside class="detail-panel" id="detail-panel" aria-live="polite">
-      <div class="detail-kind" id="detail-kind"></div>
+    <aside class="detail-panel stmt-card" id="detail-panel" aria-live="polite">
+      <div class="detail-kind tag" id="detail-kind"></div>
       <h2 id="detail-title"></h2>
       <div class="detail-label" id="detail-label"></div>
       <dl class="detail-grid">
@@ -263,11 +253,29 @@ Source, attribution, and modification notes: ./PROVENANCE.md and ./NOTICE.
   </main>
   <script src="../hgraph-custom-page.js"></script>
   <script type="module">
+    const nativeAssets = fetch(new URL('./math-assets.json', location.href)).then((response) => {
+      if (!response.ok) throw new Error('Native hgraph assets could not be loaded');
+      return response.json();
+    });
     async function initializeMap() {
     const embedded = new URLSearchParams(location.search).has('native') && window.parent !== window;
     document.getElementById('map-close').addEventListener('click', () => {
       if (window.parent !== window) window.hgraph.close();
       else location.href = '../#/';
+    });
+    const assets = await nativeAssets;
+    await new Promise((resolve, reject) => {
+      const stylesheet = document.createElement('link');
+      stylesheet.rel = 'stylesheet';
+      stylesheet.href = new URL(assets.theme, location.href).href;
+      stylesheet.dataset.hgraphTheme = '';
+      stylesheet.onload = resolve;
+      stylesheet.onerror = () => reject(new Error('Native hgraph stylesheet could not be loaded'));
+      document.head.insertBefore(stylesheet, document.head.querySelector('style'));
+    });
+    const icon = (name) => assets.icons[name] || '';
+    document.querySelectorAll('[data-map-icon]').forEach((element) => {
+      element.innerHTML = icon(element.dataset.mapIcon);
     });
     const DATA = embedded ? await new Promise((resolve, reject) => {
       const receive = (event) => {
@@ -289,6 +297,7 @@ Source, attribution, and modification notes: ./PROVENANCE.md and ./NOTICE.
       if (!response.ok) throw new Error(`Map data could not be loaded (${response.status})`);
       return response.json();
     })();
+    if (DATA.theme?.accent) document.documentElement.style.setProperty('--accent', DATA.theme.accent);
     document.title = `${DATA.title || 'Blueprint'} — Blueprint map`;
     const KATEX_MACROS = {...(DATA.macros || {}),"\\mbox":"\\text","\\hbox":"\\text","\\uses":"","\\dcref":"","\\source":"","\\notready":"","\\home":"","\\github":"","\\dochome":""};
     const projectRoute = DATA.project_route || '../#/';
@@ -326,7 +335,6 @@ Source, attribution, and modification notes: ./PROVENANCE.md and ./NOTICE.
       "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
     }[char]));
     const statusLabel = (value) => ({ lean_ok: "lean ok", mathlib_ok: "mathlib ok", sorry: "not formalized", empty: "not formalized" }[value] || value || "not formalized");
-    const chapterColor = (index) => ["#3868ad", "#7556a8", "#35865a", "#b87923", "#2d8580"][index % 5];
     const layerPalettes = {
       incoming: ["#dc2626", "#ea580c", "#ca8a04", "#65a30d", "#0f766e", "#2563eb", "#4f46e5", "#7c3aed"],
       outgoing: ["#0f766e", "#0891b2", "#2563eb", "#4f46e5", "#7c3aed", "#a21caf", "#be185d", "#9f1239"],
@@ -444,10 +452,9 @@ Source, attribution, and modification notes: ./PROVENANCE.md and ./NOTICE.
         const column = document.createElement("section");
         column.className = "chapter-column";
         column.dataset.chapter = chapter.title;
-        column.style.setProperty("--chapter-color", chapterColor(index));
         const count = chapter.sections.reduce((sum, section) => sum + section.nodes.filter((node) => visibleNodeIds.has(node.id)).length, 0);
         if (!count) continue;
-        column.innerHTML = `<header class="chapter-head"><div class="chapter-kicker">Stage ${String(index + 1).padStart(2, "0")}</div><h2>${escapeHtml(chapter.title)}</h2><div class="chapter-count">${count} statement${count === 1 ? "" : "s"}</div></header><div class="chapter-body"></div>`;
+        column.innerHTML = `<header class="chapter-head"><div class="chapter-kicker">Chapter ${index + 1}</div><h2>${escapeHtml(chapter.title)}</h2><div class="chapter-count">${count} statement${count === 1 ? "" : "s"}</div></header><div class="chapter-body"></div>`;
         const body = column.querySelector(".chapter-body");
         for (const section of chapter.sections) {
           const group = document.createElement("section");
@@ -467,7 +474,7 @@ Source, attribution, and modification notes: ./PROVENANCE.md and ./NOTICE.
             card.dataset.chapter = chapter.title;
             card.dataset.status = node.status;
             card.dataset.search = `${node.title} ${node.label} ${node.kind}`.toLowerCase();
-            card.innerHTML = `<span class="node-title">${escapeHtml(node.display_title || node.title)}</span><span class="node-depth-badge" aria-hidden="true"></span><button class="node-preview-toggle" type="button" title="Show statement preview" aria-label="Show statement preview" aria-expanded="false">›</button>`;
+            card.innerHTML = `<span class="node-title">${escapeHtml(node.display_title || node.title)}</span><span class="node-depth-badge" aria-hidden="true"></span><button class="node-preview-toggle" type="button" title="Show statement preview" aria-label="Show statement preview" aria-expanded="false">${icon("chevron-right")}</button>`;
             card.addEventListener("click", () => selectNode(node.id));
             card.addEventListener("keydown", (event) => {
               if (event.target !== card || event.key !== "Enter" && event.key !== " ") return;
@@ -586,7 +593,7 @@ Source, attribution, and modification notes: ./PROVENANCE.md and ./NOTICE.
           if (!sameChapter) path.classList.add("edge-cross");
           path.setAttribute("d", pathData);
           edgeLayer.appendChild(path);
-          drawArrowhead(edgeLayer, path, sameChapter ? "#8fb1df" : "#6f95cb", sameChapter ? [] : ["edge-cross"]);
+          drawArrowhead(edgeLayer, path, "var(--muted)", sameChapter ? [] : ["edge-cross"]);
         }
       }
     }
@@ -669,9 +676,7 @@ Source, attribution, and modification notes: ./PROVENANCE.md and ./NOTICE.
       let js = DATA.katex?.js;
       let css = DATA.katex?.css;
       if (!js || !css) {
-        const response = await fetch(new URL('./math-assets.json', location.href));
-        if (!response.ok) throw new Error('Local hgraph math assets could not be loaded');
-        const assets = await response.json();
+        const assets = await nativeAssets;
         js ||= assets.js;
         css ||= assets.css;
       }
@@ -785,11 +790,13 @@ Source, attribution, and modification notes: ./PROVENANCE.md and ./NOTICE.
 
     function typesetDetailBody(id, card) {
       const body = document.querySelector("#detail-body .detail-statement");
-      if (!body || !body.textContent.includes("$") && !body.textContent.includes("\\[") && !body.textContent.includes("\\(") && !body.textContent.includes("\\begin") && !body.textContent.includes("begin{")) return;
+      const title = document.getElementById('detail-title');
+      const text = (body?.textContent || '') + (title?.textContent || '');
+      if (!body || !text.includes('$') && !text.includes('\\[') && !text.includes('\\(') && !text.includes('\\begin')) return;
       // Text nodes retain TeX; auto-render replaces only math fragments.
       loadKatex().then((render) => {
         if (!body.isConnected || previewId !== id) return;
-        render(body, {
+        const options = {
           delimiters: [
             { left: "\\[", right: "\\]", display: true },
             { left: "\\(", right: "\\)", display: false },
@@ -799,7 +806,9 @@ Source, attribution, and modification notes: ./PROVENANCE.md and ./NOTICE.
           macros: KATEX_MACROS,
           globalGroup: true,
           throwOnError: false,
-        });
+        };
+        render(body, options);
+        render(title, options);
         if (previewId === id && card) placeDetail(card);
       }).catch((error) => {
         body.dataset.mathError = error.message;
@@ -870,15 +879,18 @@ Source, attribution, and modification notes: ./PROVENANCE.md and ./NOTICE.
         button.setAttribute("aria-label", isOpen ? "Hide statement preview" : "Show statement preview");
         button.title = isOpen ? "Hide statement preview" : "Show statement preview";
       });
-      document.getElementById("detail-kind").textContent = node.kind;
+      document.getElementById("detail-kind").textContent = (node.display_title || node.kind).split(": ")[0];
       document.getElementById("detail-title").textContent = node.title;
       document.getElementById("detail-label").textContent = node.label;
       document.getElementById("detail-chapter").textContent = node.chapter;
       document.getElementById("detail-section").textContent = node.section;
+      detail.classList.remove(...[...detail.classList].filter((name) => name.startsWith('k-')));
+      detail.classList.add(`k-${node.kind}`);
+      document.getElementById('detail-kind').className = `detail-kind tag k-${node.kind}`;
       document.getElementById("detail-status").textContent = statusLabel(node.status) + (node.sketch ? " · sketch" : "");
       const sourceRef = node.ref || node.label || node.id;
       document.getElementById("detail-ref").textContent = sourceRef;
-      document.getElementById("detail-body").innerHTML = `<div class="detail-source-ref"><a href="${escapeHtml(nodeUrl(node))}" target="_parent">Open in Blueprint ↗</a></div><div class="detail-statement">${statementHtml(node.body || '')}</div>`;
+      document.getElementById("detail-body").innerHTML = `<div class="detail-source-ref"><a href="${escapeHtml(nodeUrl(node))}" class="stmt-blueprint-btn" target="_parent">Open in Blueprint ${icon("external-link")}</a></div><div class="detail-statement">${statementHtml(node.body || '')}</div>`;
       document.getElementById("detail-deps").innerHTML = linkList(incoming.get(id) || [], "No prerequisites in the current blueprint.");
       document.getElementById("detail-used-by").innerHTML = linkList(outgoing.get(id) || [], "No downstream consumers in the current blueprint.");
       detail.classList.add("open");
