@@ -3,6 +3,7 @@ import type { BibEntry, Chapter } from '../types';
 import { detex, esc } from '../latex';
 import { typesetMath } from '../typeset';
 import { buildCiteIndex } from '../citeindex';
+import { Html } from './Html';
 
 function bibAuthors(a: string | null): string {
   if (!a) return '';
@@ -80,7 +81,7 @@ export function Bibliography({
         return (
           <div className={`bibitem${flashKey === b.key ? ' flash' : ''}`} key={b.key} data-key={b.key}>
             <div className="bi-t">
-              <span className="bi-n">[{i + 1}]</span> <span dangerouslySetInnerHTML={{ __html: fmtBib(b) }} />
+              <span className="bi-n">[{i + 1}]</span> <Html html={fmtBib(b)} />
               {b.url && (
                 <>
                   {' '}

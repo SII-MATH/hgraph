@@ -433,7 +433,7 @@ export function GraphModal({
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     function onKey(ev: KeyboardEvent) {
-      if (ev.key !== 'Escape') return;
+      if (ev.key !== 'Escape' || ev.defaultPrevented) return;
       if (selectedId != null) {
         onSelect(null);
         return;

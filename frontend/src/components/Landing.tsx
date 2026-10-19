@@ -4,6 +4,7 @@ import { themeFor } from '../theme';
 import { ProjectCard } from './ProjectCard';
 import { ContentPage } from './ContentPage';
 import { ContentModal } from './ContentModal';
+import { ViewCache } from './ViewCache';
 
 /** The workspace totals shown in the header — the same quantities a project's
  * own header shows, summed over every project on the page. */
@@ -47,9 +48,12 @@ export function Landing({ data }: { data: SiteData }) {
 
   return (
     <>
-      {modal && <ContentModal title={modal.label} onClose={closeModal}>
-        <ContentPage html={modal.html} className="doc" onClose={closeModal} />
-      </ContentModal>}
+      <ViewCache activeKey={modal?.id || null} capacity={2} restoreScroll={false}>{(id) => {
+        const item = contentTabs.find(tab => tab.id === id);
+        return item ? <ContentModal title={item.label} onClose={closeModal}>
+          <ContentPage html={item.html} className="doc" onClose={closeModal} />
+        </ContentModal> : null;
+      }}</ViewCache>
       <header className="site-header">
         <div className="site-htop">
           <span className="site-brand">{data.brand || data.title}</span>
@@ -95,7 +99,9 @@ export function Landing({ data }: { data: SiteData }) {
           </nav>
         )}
 
-        {tab === 'projects' &&
+        <ViewCache activeKey={tab} capacity={4}>{(page) => {
+          const content = contentTabs.find(item => item.id === page);
+          return page === 'projects' ?
           data.sections.map((section, i) => {
             // a configured section/project theme wins; otherwise cycle the palette
             const theme = section.theme ?? themeFor(i);
@@ -117,11 +123,9 @@ export function Landing({ data }: { data: SiteData }) {
                 </div>
               </section>
             );
-          })}
-
-        {tab === 'overview' && hasOverview && <ContentPage html={data.overviewHtml!} />}
-        {activeContentTab && <ContentPage key={activeContentTab.id} html={activeContentTab.html}
-          onClose={modal ? undefined : closePage} />}
+          }) : page === 'overview' && hasOverview ? <ContentPage html={data.overviewHtml!} />
+          : content ? <ContentPage html={content.html} onClose={modal ? undefined : closePage} /> : null;
+        }}</ViewCache>
 
         <footer
           className="footer"

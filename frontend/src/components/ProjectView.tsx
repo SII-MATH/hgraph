@@ -9,6 +9,8 @@ import { HoverPreview } from './HoverPreview';
 import { Summary } from './Summary';
 import { Bibliography } from './Bibliography';
 import { ContentPage } from './ContentPage';
+import { ViewCache } from './ViewCache';
+import { visibleElementById } from '../viewCache';
 import { ContentModal } from './ContentModal';
 import { citeNums, plainTex, setExtRefs } from '../latex';
 import { setDefaultMacros } from '../typeset';
@@ -66,7 +68,7 @@ function useStoredPanelState(key: string): [boolean, () => void] {
 
 function flashEl(id: string) {
   requestAnimationFrame(() => {
-    let el = document.getElementById(id);
+    let el = visibleElementById(id);
     if (!el) return;
     // an equation marker has no box of its own — flash the display it precedes
     if (el.classList.contains('eqa')) el = (el.nextElementSibling as HTMLElement) || el;
@@ -395,7 +397,7 @@ export function ProjectView({ root, initialLocator }: { root: string; initialLoc
     void loadChapter(chapterIndex).then(() => {
       if (!elementId) return;
       requestAnimationFrame(() => {
-        document.getElementById(elementId)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        visibleElementById(elementId)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         flashEl(elementId);
       });
     }).catch(() => undefined);
@@ -425,7 +427,7 @@ export function ProjectView({ root, initialLocator }: { root: string; initialLoc
     setAnchor(`stmt-${id}`);
     void loadChapter(chapterIndex).then(() => {
       requestAnimationFrame(() => {
-        document.getElementById(`stmt-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        visibleElementById(`stmt-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         flashEl(`stmt-${id}`);
       });
     }).catch(() => undefined);
@@ -457,7 +459,7 @@ export function ProjectView({ root, initialLocator }: { root: string; initialLoc
     setAnchor(`sec-${num}`);
     void loadChapter(chapterIndex).then(() => {
       requestAnimationFrame(() => {
-        document.getElementById(`sec-${num}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        visibleElementById(`sec-${num}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       });
     }).catch(() => undefined);
   }
@@ -632,13 +634,10 @@ export function ProjectView({ root, initialLocator }: { root: string; initialLoc
   if (error) return <div className="page-error">Couldn't load this project: {error}</div>;
   if (!data) return <div className="page-loading">Loading…</div>;
 
-  const showResults = view === 'doc' && !!filtered;
   const needsAllChapters = view === 'biblio'
     || (view === 'doc' && (!!query.trim() || statusFilter.size > 0));
   const allLoadError = Array.from(chapterErrors.values())[0] || null;
   const chaptersAreLoading = loadingChapters.size > 0;
-  const currentChapterLoaded = !data.lazy?.chapters || loadedChapters.has(curCh);
-  const currentChapterError = chapterErrors.get(curCh) || null;
   const customTabs = data.customTabs ?? [];
   const activeCustom = customTabs.find((c) => c.id === view);
   // a project's configured accent recolours its whole blueprint view — every
@@ -653,7 +652,8 @@ export function ProjectView({ root, initialLocator }: { root: string; initialLoc
       {/* while the graph modal is open, clicks in its pinned mini-graph popup
           must select within the modal, not silently change the doc view behind it */}
       <HoverPreview data={graphProjectData || data} root={root} onNavigate={graphOpen ? openInGraph : navigate} />
-      {graphOpen && graphProjectData && (
+      <ViewCache activeKey={graphOpen && graphProjectData ? 'graph' : mapOpen && graphProjectData && allChaptersLoaded && !mapError ? 'map' : customModal ? 'custom:' + customModal.id : null}
+        capacity={3} restoreScroll={false}>{(overlay) => overlay === 'graph' && graphProjectData ? (
         <Suspense
           fallback={(
             <GraphPending
@@ -673,7 +673,17 @@ export function ProjectView({ root, initialLocator }: { root: string; initialLoc
             byId={byId}
           />
         </Suspense>
-      )}
+      ) : overlay === 'map' && graphProjectData ? (
+        <Suspense fallback={<div className="page-loading">Preparing blueprint map…</div>}>
+          <MapModal data={graphProjectData} root={root} title={data.map?.label || 'Blueprint map'}
+            onClose={closeMap} onNavigate={navigateFromCustom} />
+        </Suspense>
+      ) : (() => {
+        const tab = customTabs.find(item => 'custom:' + item.id === overlay);
+        return tab ? <ContentModal title={tab.label} onClose={closeCustomModal}>
+          <ContentPage html={tab.html} className="doc" onClose={closeCustomModal} onNavigate={navigateFromCustom} />
+        </ContentModal> : null;
+      })()}</ViewCache>
       {graphOpen && !graphProjectData && (
         <GraphPending
           error={graphLoading ? null : graphError}
@@ -681,23 +691,13 @@ export function ProjectView({ root, initialLocator }: { root: string; initialLoc
           onClose={() => setGraphOpen(false)}
         />
       )}
-      {mapOpen && (
-        graphProjectData && allChaptersLoaded && !mapError ? (
-          <Suspense fallback={<ContentModal title={data.map?.label || 'Blueprint map'} onClose={closeMap}>
-            <div className="page-loading">Preparing blueprint map…</div>
-          </ContentModal>}>
-            <MapModal data={graphProjectData} root={root} title={data.map?.label || 'Blueprint map'}
-              onClose={closeMap} onNavigate={navigateFromCustom} />
-          </Suspense>
-        ) : <ContentModal title={data.map?.label || 'Blueprint map'} onClose={closeMap}>
+      {mapOpen && (!graphProjectData || !allChaptersLoaded || mapError) && (
+        <ContentModal title={data.map?.label || 'Blueprint map'} onClose={closeMap}>
           {mapError ? <div className="page-error">Couldn't load the blueprint map: {mapError}
             <button type="button" className="gm-btn" onClick={() => onSetView('map')}>Retry</button>
           </div> : <div className="page-loading">Preparing blueprint map…</div>}
         </ContentModal>
       )}
-      {customModal && <ContentModal title={customModal.label} onClose={closeCustomModal}>
-        <ContentPage html={customModal.html} className="doc" onClose={closeCustomModal} onNavigate={navigateFromCustom} />
-      </ContentModal>}
       {mobileNavigationOpen && <ContentModal title="Navigation" onClose={closeMobileNavigation}>
         <div className="mobile-navigation">
           <Toc id="blueprint-mobile-navigation" chapters={chapters} refs={refs} curCh={curCh}
@@ -793,21 +793,28 @@ export function ProjectView({ root, initialLocator }: { root: string; initialLoc
         />
 
         <main className="doc-main">
-          {activeCustom ? (
-            <ContentPage key={activeCustom.id} html={activeCustom.html} className="doc"
+          <ViewCache activeKey={activeCustom ? 'custom:' + activeCustom.id : view === 'doc' && !filtered ? 'chapter:' + curCh : view}>
+            {(pageKey) => {
+              const custom = customTabs.find(tab => 'custom:' + tab.id === pageKey);
+              const chapterIndex = pageKey.startsWith('chapter:') ? Number(pageKey.slice(8)) : curCh;
+              const isCurrent = pageKey === view || pageKey === 'chapter:' + curCh;
+              const pageNeedsChapters = pageKey === 'biblio' || (pageKey === 'doc' && needsAllChapters);
+              const chapterLoaded = !data.lazy?.chapters || loadedChapters.has(chapterIndex);
+              return custom ? (
+            <ContentPage key={custom.id} html={custom.html} className="doc"
               onClose={customModal || mapOpen || graphOpen ? undefined : closeCustomPage}
               onNavigate={customModal || mapOpen || graphOpen ? undefined : navigateFromCustom} />
-          ) : view === 'summary' ? (
+          ) : pageKey === 'summary' ? (
             <Summary entries={entries} chapters={chapters} refs={refs} onSelect={navigate} onGotoChapter={gotoChapter} />
-          ) : needsAllChapters && !allChaptersLoaded ? (
+          ) : pageNeedsChapters && !allChaptersLoaded ? (
             <ContentPending
-              label={view === 'biblio' ? 'bibliography references' : 'search index'}
+              label={pageKey === 'biblio' ? 'bibliography references' : 'search index'}
               error={chaptersAreLoading ? null : allLoadError}
               onRetry={() => { void loadAllChapters().catch(() => undefined); }}
             />
-          ) : view === 'biblio' ? (
+          ) : pageKey === 'biblio' ? (
             <Bibliography bib={data.bib} chapters={chapters} onGotoLoc={gotoLoc} flashKey={flashBibKey} />
-          ) : showResults && filtered ? (
+          ) : pageKey === 'doc' && filtered ? (
             <div className="doc">
               <h2 className="ch">Results · {filtered.length}</h2>
               {filtered.length === 0 && <p className="ro">No statements match.</p>}
@@ -834,7 +841,7 @@ export function ProjectView({ root, initialLocator }: { root: string; initialLoc
                 </p>
               )}
             </div>
-          ) : view === 'overview' && chapters.length > 0 ? (
+          ) : pageKey === 'overview' && chapters.length > 0 ? (
             <Overview
               docTitle={data.docTitle}
               docAuthor={data.docAuthor}
@@ -844,16 +851,16 @@ export function ProjectView({ root, initialLocator }: { root: string; initialLoc
               onGotoChapter={gotoChapter}
               onGotoSection={gotoSection}
             />
-          ) : chapters.length > 0 && !currentChapterLoaded ? (
+          ) : chapters.length > 0 && !chapterLoaded ? (
             <ContentPending
-              label={`chapter ${chapters[curCh]?.num || curCh + 1}`}
-              error={loadingChapters.has(curCh) ? null : currentChapterError}
-              onRetry={() => { void loadChapter(curCh).catch(() => undefined); }}
+              label={`chapter ${chapters[chapterIndex]?.num || curCh + 1}`}
+              error={loadingChapters.has(chapterIndex) ? null : chapterErrors.get(chapterIndex) || null}
+              onRetry={() => { void loadChapter(chapterIndex).catch(() => undefined); }}
             />
           ) : chapters.length > 0 ? (
             <ChapterView
-              key={curCh} /* fresh progressive-hydration state per chapter */
-              chapter={chapters[curCh]}
+              key={chapterIndex}
+              chapter={chapters[chapterIndex]}
               refs={refs}
               cites={cites}
               macros={data.macros}
@@ -861,16 +868,16 @@ export function ProjectView({ root, initialLocator }: { root: string; initialLoc
               selectedId={selectedId}
               onSelect={navigate}
               onNavigate={navigate}
-              onGotoSection={(num) => gotoSection(curCh, num)}
+              onGotoSection={(num) => gotoSection(chapterIndex, num)}
               onOpenGraph={openInGraph}
               onCite={onCite}
-              anchor={anchor}
+              anchor={isCurrent ? anchor : null}
               root={root}
               repo={data.repo}
             />
           ) : (
             <FlatList data={data} onSelect={navigate} onOpenGraph={openInGraph} />
-          )}
+          ); }}</ViewCache>
         </main>
 
         <Outline chapter={chapters[curCh] || null} selectedId={selectedId} onSelect={navigate} />

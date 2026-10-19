@@ -29,3 +29,11 @@ Python renderer did — statements, Lean code, dependencies, reviews/comments,
 the interactive dependency-graph modal (`GraphModal.tsx`, Graphviz-as-WASM in
 a Web Worker), hover-preview popups (`HoverPreview.tsx`), the search/filter
 sidebar, and bibliography rendering (`Bibliography.tsx`).
+
+## Page lifetime and reuse
+
+Project pages retain up to six recently visited main views and three overlays; the workspace retains four pages and two overlays. Views mount on first visit, with least-recently-used eviction. Stable DOM order and HTML injection only on source changes preserve iframe browsing contexts, form drafts, expanded details, reading positions and rendered math. React Activity removes hidden React effects, so hidden pages cannot issue navigation commands or retain modal keyboard handlers and scroll locks. Native maps and graphs preserve their view controls when reopened.
+
+The cache belongs to the current document and project root. Switching projects or refreshing destroys it, and refresh reads the newly exported data; no persistent browser cache can mask a new publication. Ordinary chapter/graph requests keep their existing lazy loading and request deduplication. Explicit statement navigation resolves visible anchors even when a retained search page contains the same statement.
+
+Run `npm test`, `npm run build`, `npm run lint`, and `npm run test:browser`. Browser checks cover a preserved URL prefix, retained iframe identity, hidden-message isolation, bounded eviction, reset on refresh, map/graph controls and native modal focus behavior.

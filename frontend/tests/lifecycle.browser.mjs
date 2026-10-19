@@ -42,6 +42,7 @@ const chapters = [0, 1].map((chapter) => ({
 const tabs = [
   { id: 'inline-modal', label: 'Inline tool', presentation: 'modal', html: '<h2>Inline lifecycle tool</h2><p>$x^2=1$</p><script>window.inlineScriptExecuted = true;</script><button data-hgraph-close>Finish inline</button>' },
   { id: 'iframe-modal', label: 'Iframe tool', presentation: 'modal', html: '<iframe title="SDK tool" src="widgets/tool.html" style="width:100%;height:400px"></iframe>' },
+  { id: 'cached-iframe', label: 'Cached iframe', html: '<iframe title="Cached tool" src="widgets/tool.html" style="width:100%;height:400px"></iframe>' },
   { id: 'default-page', label: 'Default page', html: '<h2>Default page content</h2><button data-hgraph-close>Finish page</button>' },
 ];
 const workspace = {
@@ -64,9 +65,10 @@ const project = {
   loc: Object.fromEntries(entries.map((entry, index) => [entry.id, Math.floor(index / 8)])),
   macros: { '\\F': '\\mathbb{F}' }, bib: [], repo: null, customTabs: tabs,
 };
-for (const name of ['enabled', 'disabled']) {
+for (const name of ['enabled', 'disabled', 'cache-fixture']) {
   await mkdir(join(root, name), { recursive: true });
-  const data = name === 'enabled' ? { ...project, map: { enabled: true, label: 'Blueprint map' } } : project;
+  const data = name === 'disabled' ? project : { ...project, map: { enabled: true, label: 'Blueprint map' } };
+  if (name === 'cache-fixture') data.customTabs = [...tabs, ...Array.from({length:7}, (_,i)=>({id:'extra-'+i,label:'Extra '+i,html:'<h2>Extra '+i+'</h2>'}))];
   await json(join(root, name, 'project.json'), data);
   await json(join(root, name, 'data.json'), data);
 }
@@ -110,12 +112,12 @@ async function waitFor(check, message, timeout = 10000) {
   assert.fail(message);
 }
 let readerRun = 0;
-async function reader(page, query = 'Lifecycle') {
+async function reader(page, query = 'Lifecycle', projectRoot = 'enabled') {
   // Independent fixture runs need a document navigation, rather than an SPA-only hash change.
-  await page.goto(`${base}?fixture=${++readerRun}#/enabled#test:node-1`);
-  await page.locator('#stmt-node-1.sel').waitFor();
+  await page.goto(`${base}?fixture=${++readerRun}#/${projectRoot}#test:node-1`);
+  await page.locator('#stmt-node-1.sel:visible').waitFor();
   await page.locator('.navq').fill(query);
-  await waitFor(async () => await page.locator('.doc-main .stmt').count() === entries.length, 'Search results did not settle');
+  await waitFor(async () => await page.locator('.doc-main .stmt:visible').count() === (query ? entries.length : 8), 'Search results did not settle');
   await page.evaluate(() => {
     window.scrollTo(0, 500);
     window.readerMarker = document.querySelector('.doc-main');
@@ -126,7 +128,7 @@ async function reader(page, query = 'Lifecycle') {
   return page.evaluate(() => ({ token: window.lifecycleLoadToken, y: scrollY, selected: document.querySelector('.stmt.sel')?.id, query: document.querySelector('.navq').value }));
 }
 async function unchanged(page, previous) {
-  await waitFor(async () => await page.locator('.content-modal').count() === 0, 'Overlay remained open');
+  await waitFor(async () => await page.locator('.content-modal:visible').count() === 0, 'Overlay remained open');
   const state = await page.evaluate(() => ({ token: window.lifecycleLoadToken, y: scrollY,
     selected: document.querySelector('.stmt.sel')?.id, query: document.querySelector('.navq').value,
     sameReader: window.readerMarker === document.querySelector('.doc-main'),
@@ -139,7 +141,7 @@ async function unchanged(page, previous) {
 }
 async function mapFrame(page) {
   await nav(page, 'Blueprint map').click();
-  const handle = await page.locator('iframe.native-map-frame').elementHandle();
+  const handle = await page.locator('iframe.native-map-frame:visible').elementHandle();
   const frame = await handle.contentFrame();
   await frame.locator('.node-card').first().waitFor();
   return frame;
@@ -149,7 +151,7 @@ async function rejectMessages(page, frame, openSelector) {
     const data = { channel: 'hgraph:custom-page', version: 1, type: 'close' };
     // Correct origin, but parent-window source, not the hosted iframe.
     window.postMessage(data, location.origin);
-    const active = document.querySelector('iframe.native-map-frame, .content-modal iframe');
+    const active = Array.from(document.querySelectorAll('iframe.native-map-frame, .content-modal iframe')).find(frame => frame.getClientRects().length);
     window.dispatchEvent(new MessageEvent('message', { origin: 'https://wrong-origin.invalid', source: active.contentWindow, data }));
     window.dispatchEvent(new MessageEvent('message', { origin: location.origin, source: active.contentWindow, data: { ...data, version: 2 } }));
     const unrelated = document.createElement('iframe'); unrelated.id = 'unrelated-frame';
@@ -170,7 +172,7 @@ await test('static lifecycle under a preserved /proxy/PORT/ prefix', async (t) =
     await page.goto(`${base}#/disabled`);
     await page.locator('.project-header').waitFor();
     assert.equal(await nav(page, 'Blueprint map').count(), 0);
-    assert.equal(await page.locator('iframe.native-map-frame').count(), 0);
+    assert.equal(await page.locator('iframe.native-map-frame:visible').count(), 0);
   });
   await t.test('Map navigation matches native typography, glyphs, hover and selection', async () => {
     await reader(page);
@@ -206,7 +208,7 @@ await test('static lifecycle under a preserved /proxy/PORT/ prefix', async (t) =
     // Seed the reader at the phone width so desktop-to-phone reflow is not
     // mistaken for a menu-induced scroll change. The desktop rail is hidden.
     await page.goto(`${base}?fixture=${++readerRun}#/enabled#test:node-1`);
-    await page.locator('#stmt-node-1.sel').waitFor();
+    await page.locator('#stmt-node-1.sel:visible').waitFor();
     await page.evaluate(() => {
       window.scrollTo(0, 500);
       window.readerMarker = document.querySelector('.doc-main');
@@ -254,7 +256,7 @@ await test('static lifecycle under a preserved /proxy/PORT/ prefix', async (t) =
     try {
       await (await menuLink('Blueprint map')).click();
       assert.equal(await page.getByRole('dialog', { name: 'Navigation', exact: true }).count(), 0);
-      const frame = await (await page.locator('iframe.native-map-frame').elementHandle()).contentFrame();
+      const frame = await (await page.locator('iframe.native-map-frame:visible').elementHandle()).contentFrame();
       await frame.locator('.node-card').first().waitFor();
       await frame.locator('#map-close').click();
       await unchanged(page, state);
@@ -269,7 +271,7 @@ await test('static lifecycle under a preserved /proxy/PORT/ prefix', async (t) =
       await page.getByRole('heading', { name: 'Blueprint summary', exact: true }).waitFor();
       await trigger.click();
       await page.getByRole('button', { name: 'View results', exact: true }).click();
-      await waitFor(async () => await page.locator('.doc-main .stmt').count() === entries.length, 'View results did not leave the summary');
+      await waitFor(async () => await page.locator('.doc-main .stmt:visible').count() === entries.length, 'View results did not leave the summary');
       await (await menuLink('Blueprint bibliography')).click();
       assert.equal(await page.getByRole('dialog', { name: 'Navigation', exact: true }).count(), 0);
       await (await menuLink('Default page')).click();
@@ -289,14 +291,14 @@ await test('static lifecycle under a preserved /proxy/PORT/ prefix', async (t) =
       await trigger.click();
       await mobile.getByRole('textbox', { name: 'Search statements' }).fill('Lifecycle result 2');
       await mobile.getByRole('textbox', { name: 'Search statements' }).press('Enter');
-      await waitFor(async () => await page.locator('.doc-main .stmt').count() === 1, 'Mobile search did not reach the reader');
+      await waitFor(async () => await page.locator('.doc-main .stmt:visible').count() === 1, 'Mobile search did not reach the reader');
       await trigger.click();
       assert.equal(await mobile.locator('.navq').inputValue(), 'Lifecycle result 2');
       await mobile.locator('.navq').fill('');
       await mobile.getByRole('button', { name: 'lean ok', exact: true }).click();
       assert.equal(await mobile.getByRole('button', { name: 'lean ok', exact: true }).getAttribute('aria-pressed'), 'true');
       await page.getByRole('button', { name: 'View results', exact: true }).click();
-      await waitFor(async () => await page.locator('.doc-main .stmt').count() === 4, 'Mobile status filter did not reach the reader');
+      await waitFor(async () => await page.locator('.doc-main .stmt:visible').count() === 4, 'Mobile status filter did not reach the reader');
       await trigger.click();
       await mobile.getByRole('button', { name: 'Expand chapter 2', exact: true }).click();
       assert.equal(await mobile.getByRole('button', { name: 'Collapse chapter 2', exact: true }).getAttribute('aria-expanded'), 'true');
@@ -339,6 +341,22 @@ await test('static lifecycle under a preserved /proxy/PORT/ prefix', async (t) =
     await frame.locator('#map-close').click();
     await unchanged(page, state);
   });
+  await t.test('Map reopens with the same document, search and zoom', async () => {
+    await reader(page);
+    const frame=await mapFrame(page);
+    await frame.locator('#map-search').fill('Lifecycle');
+    await frame.locator('#map-zoom-in').click();
+    const zoom=await frame.locator('#map-zoom-level').textContent();
+    const token=await frame.evaluate(()=>window.mapToken=crypto.randomUUID());
+    const before=requests.filter(path=>path.includes('blueprint-map/renderer.html')).length;
+    await frame.locator('#map-close').click();
+    const again=await mapFrame(page);
+    assert.equal(await again.evaluate(()=>window.mapToken),token);
+    assert.equal(await again.locator('#map-search').inputValue(),'Lifecycle');
+    assert.equal(await again.locator('#map-zoom-level').textContent(),zoom);
+    assert.equal(requests.filter(path=>path.includes('blueprint-map/renderer.html')).length,before);
+    await again.locator('#map-close').click();
+  });
   await t.test('Map Escape closes preview, clears focus, then closes without reloading', async () => {
     const state = await reader(page);
     const frame = await mapFrame(page);
@@ -359,10 +377,10 @@ await test('static lifecycle under a preserved /proxy/PORT/ prefix', async (t) =
   await t.test('Map protocol rejects wrong origin, version, and iframe source', async () => {
     const state = await reader(page);
     const frame = await mapFrame(page);
-    await rejectMessages(page, frame, 'iframe.native-map-frame');
+    await rejectMessages(page, frame, 'iframe.native-map-frame:visible');
     await frame.evaluate(() => window.hgraph.navigate('test:unknown'));
     await pause();
-    assert.equal(await page.locator('iframe.native-map-frame').count(), 1, 'Unknown locator closed Map');
+    assert.equal(await page.locator('iframe.native-map-frame:visible').count(), 1, 'Unknown locator closed Map');
     await frame.evaluate(() => window.hgraph.close());
     await unchanged(page, state);
   });
@@ -371,8 +389,8 @@ await test('static lifecycle under a preserved /proxy/PORT/ prefix', async (t) =
     const frame = await mapFrame(page);
     await frame.locator('[data-node="node-2"] .node-preview-toggle').click({ force: true });
     await frame.getByRole('link', { name: 'Open in Blueprint', exact: false }).click({ force: true });
-    await page.locator('#stmt-node-2.sel').waitFor();
-    assert.equal(await page.locator('.content-modal').count(), 0);
+    await page.locator('#stmt-node-2.sel:visible').waitFor();
+    assert.equal(await page.locator('.content-modal:visible').count(), 0);
     assert.equal(await page.evaluate(() => window.lifecycleLoadToken), state.token);
   });
   await t.test('inline modal close button, event, and host SDK preserve the reader', async () => {
@@ -412,17 +430,17 @@ await test('static lifecycle under a preserved /proxy/PORT/ prefix', async (t) =
     await nav(page, 'Iframe tool').click();
     const next = await (await page.getByTitle('SDK tool', { exact: true }).elementHandle()).contentFrame();
     await next.locator('#sdk-navigate').click();
-    await page.locator('#stmt-node-2.sel').waitFor();
-    assert.equal(await page.locator('.content-modal').count(), 0);
+    await page.locator('#stmt-node-2.sel:visible').waitFor();
+    assert.equal(await page.locator('.content-modal:visible').count(), 0);
     assert.equal(await page.evaluate(() => window.lifecycleLoadToken), state.token);
   });
   await t.test('default custom pages return to their previous view on close', async () => {
     const state = await reader(page);
     await nav(page, 'Default page').click();
     await page.getByRole('heading', { name: 'Default page content', exact: true }).waitFor();
-    assert.equal(await page.locator('.content-modal').count(), 0, 'Default page became a modal');
+    assert.equal(await page.locator('.content-modal:visible').count(), 0, 'Default page became a modal');
     await page.getByRole('button', { name: 'Finish page', exact: true }).click();
-    await page.locator('#stmt-node-1.sel').waitFor();
+    await page.locator('#stmt-node-1.sel:visible').waitFor();
     assert.equal(await page.locator('.navq').inputValue(), state.query);
     assert.equal(await page.evaluate(() => window.lifecycleLoadToken), state.token);
     await waitFor(async () => await page.evaluate((y) => Math.abs(scrollY - y) < 3, state.y), 'Default page did not restore reader scroll');
@@ -434,13 +452,68 @@ await test('static lifecycle under a preserved /proxy/PORT/ prefix', async (t) =
     await nav(page, 'Inline tool').click();
     await page.getByRole('dialog', { name: 'Inline tool', exact: true }).waitFor();
     await page.evaluate(() => window.hgraph.close());
-    await waitFor(async () => await page.locator('.content-modal').count() === 0, 'Nested modal remained open');
+    await waitFor(async () => await page.locator('.content-modal:visible').count() === 0, 'Nested modal remained open');
     assert.equal(await page.getByRole('heading', { name: 'Default page content', exact: true }).count(), 1,
       'A modal close event also closed the underlying custom page');
     assert.ok(await nav(page, 'Default page').evaluate((element) => element.classList.contains('on')));
     assert.equal(await page.evaluate(() => window.lifecycleLoadToken), state.token);
     await page.getByRole('button', { name: 'Finish page', exact: true }).click();
-    await page.locator('#stmt-node-1.sel').waitFor();
+    await page.locator('#stmt-node-1.sel:visible').waitFor();
+  });
+  await t.test('custom pages retain the same iframe and state until LRU eviction or reload', async () => {
+    await reader(page, '', 'cache-fixture');
+    await nav(page, 'Cached iframe').click();
+    const iframe = page.frameLocator('iframe[title="Cached tool"]');
+    await iframe.getByRole('heading', {name:'Iframe lifecycle tool'}).waitFor();
+    const before = requests.filter(path => path.endsWith('/widgets/tool.html')).length;
+    const token = await iframe.locator('body').evaluate(el => {
+      window.cacheToken = crypto.randomUUID();
+      const input = document.createElement('input'); input.id='draft'; input.value='retained draft';el.append(input);
+      return window.cacheToken;
+    });
+    await nav(page, 'Overview').click();
+    // A retained, hidden iframe must not close or navigate its parent's active page.
+    await page.locator('iframe[title="Cached tool"]').evaluate(frame => frame.contentWindow.hgraph.navigate('test:node-9'));
+    await pause();
+    assert.ok(await nav(page,'Overview').evaluate(el => el.classList.contains('on')));
+    await nav(page, 'Cached iframe').click();
+    assert.equal(await iframe.locator('#draft').inputValue(), 'retained draft');
+    assert.equal(await iframe.locator('body').evaluate(() => window.cacheToken), token);
+    assert.equal(requests.filter(path => path.endsWith('/widgets/tool.html')).length, before);
+    for(let i=0;i<7;i++) { await nav(page, 'Extra '+i).click(); await page.getByRole('heading',{name:'Extra '+i,exact:true}).waitFor(); }
+    assert.equal(await page.locator('iframe[title="Cached tool"]').count(),0,'Least recent iframe was not evicted');
+    assert.ok(await page.locator('.doc-main > [data-view-active]').count() <= 6);
+    await nav(page, 'Cached iframe').click();
+    await iframe.getByRole('heading', {name:'Iframe lifecycle tool'}).waitFor();
+    assert.equal(await iframe.locator('#draft').count(),0);
+    assert.equal(requests.filter(path => path.endsWith('/widgets/tool.html')).length, before+1);
+    await page.reload();
+    await page.locator('.project-header').waitFor();
+    assert.equal(await page.locator('iframe[title="Cached tool"]').count(),0,'Reload retained a stale view cache');
+  });
+  await t.test('chapters retain expanded details and math nodes across utility pages', async () => {
+    await reader(page,'');
+    const statement = page.locator('#stmt-node-1:visible');
+    await statement.waitFor();
+    await statement.evaluate(el => { window.cachedStatement=el; window.cachedMath=el.querySelector('.katex'); });
+    await nav(page,'Blueprint summary').click();
+    await page.locator('#blueprint-navigation .tch-link').filter({hasText:'First chapter'}).click();
+    await statement.waitFor();
+    assert.ok(await statement.evaluate(el => el===window.cachedStatement));
+    assert.ok(await statement.evaluate(el => el.querySelector('.katex')===window.cachedMath));
+  });
+  await t.test('dependency graph retains filters and its SVG when reopened', async () => {
+    await reader(page);
+    await nav(page,'Dependency graph').click();
+    await page.locator('.gv-inner svg:visible').waitFor();
+    const input=page.locator('.graph-modal:visible input');
+    if(await input.count()) await input.first().fill('Lifecycle');
+    await page.locator('.gv-inner svg:visible').evaluate(el=>window.cachedGraph=el);
+    await page.locator('.graph-modal:visible .gm-bar button').last().click();
+    await nav(page,'Dependency graph').click();
+    assert.ok(await page.locator('.gv-inner svg:visible').evaluate(el=>el===window.cachedGraph));
+    if(await input.count()) assert.equal(await input.first().inputValue(),'Lifecycle');
+    await page.keyboard.press('Escape');
   });
   await t.test('workspace custom modal/page lifecycles return to Projects without reload', async () => {
     await page.goto(`${base}?workspace=1#/`);
@@ -454,17 +527,17 @@ await test('static lifecycle under a preserved /proxy/PORT/ prefix', async (t) =
     await landingNav('Workspace tool').click();
     await page.getByRole('dialog', { name: 'Workspace tool', exact: true }).waitFor();
     await page.getByRole('button', { name: 'Finish workspace modal', exact: true }).click();
-    await waitFor(async () => await page.locator('.content-modal').count() === 0, 'Workspace modal remained open');
+    await waitFor(async () => await page.locator('.content-modal:visible').count() === 0, 'Workspace modal remained open');
     assert.ok(await page.evaluate(() => window.workspaceCards === document.querySelector('.card-grid')),
       'Workspace modal replaced the Projects DOM');
     await landingNav('Workspace page').click();
     await page.getByRole('heading', { name: 'Workspace page content', exact: true }).waitFor();
-    assert.equal(await page.locator('.content-modal').count(), 0);
+    assert.equal(await page.locator('.content-modal:visible').count(), 0);
     // Exercise the same covered-page case on the workspace.
     await landingNav('Workspace tool').click();
     await page.getByRole('dialog', { name: 'Workspace tool', exact: true }).waitFor();
     await page.evaluate(() => window.hgraph.close());
-    await waitFor(async () => await page.locator('.content-modal').count() === 0, 'Workspace modal remained open');
+    await waitFor(async () => await page.locator('.content-modal:visible').count() === 0, 'Workspace modal remained open');
     assert.equal(await page.getByRole('heading', { name: 'Workspace page content', exact: true }).count(), 1);
     await page.getByRole('button', { name: 'Finish workspace page', exact: true }).click();
     await page.locator('.card-grid').waitFor();
@@ -478,7 +551,7 @@ await test('static lifecycle under a preserved /proxy/PORT/ prefix', async (t) =
     await page.locator('.gm-q').fill('Lifecycle result 2');
     assert.equal(await page.locator('.gm-q').inputValue(), 'Lifecycle result 2');
     await page.getByRole('button', { name: /Close/ }).filter({ hasText: 'Close' }).last().click();
-    await waitFor(async () => await page.locator('.graph-modal').count() === 0, 'Graph did not close');
+    await waitFor(async () => await page.locator('.graph-modal:visible').count() === 0, 'Graph did not close');
     await unchanged(page, state);
   });
   await t.test('all asset/API paths stay under the prefix and Map uses no sidecar data', async () => {

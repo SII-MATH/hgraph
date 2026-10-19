@@ -1,5 +1,6 @@
 import { useRef, useEffect } from 'react';
 import { typesetMath } from '../typeset';
+import { useHtml } from '../useHtml';
 import { isCustomPageMessage, ownsMessage } from '../customPage';
 
 /** A configured content page — a landing or blueprint custom tab, or the
@@ -9,12 +10,13 @@ import { isCustomPageMessage, ownsMessage } from '../customPage';
  *  typeset so `$…$` math renders. Extracted from Landing's former inner
  *  `Overview` so the landing page and ProjectView share one renderer.
  *
- *  No dependency array (same React-19 innerHTML-reset caveat as Tex.tsx);
- *  `typesetMath`'s guard makes the per-commit call O(1) when nothing changed. */
+ *  Inject HTML only when its source changes: React 19 otherwise resets an
+ *  iframe on unrelated renders. Math typesetting remains guarded and idempotent. */
 export function ContentPage({ html, className = 'overview', onClose, onNavigate }: {
   html: string; className?: string; onClose?: () => void; onNavigate?: (locator: string) => void;
 }) {
   const ref = useRef<HTMLElement | null>(null);
+  useHtml(ref, html);
   useEffect(() => {
     if (ref.current) typesetMath(ref.current);
   });
@@ -50,5 +52,5 @@ export function ContentPage({ html, className = 'overview', onClose, onNavigate 
       element?.removeEventListener('click', click);
     };
   }, [onClose, onNavigate]);
-  return <section className={className} ref={ref as never} dangerouslySetInnerHTML={{ __html: html }} />;
+  return <section className={className} ref={ref as never}  />;
 }

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { proseHtml, type CiteNums, type RefEntry } from '../latex';
 import { typesetMath } from '../typeset';
+import { useHtml } from '../useHtml';
 
 /**
  * Renders `text` as full text-mode LaTeX -> HTML (see latex.ts's `detex`):
@@ -37,20 +38,15 @@ export function Math({
 }) {
   const ref = useRef<HTMLElement | null>(null);
 
-  // Memoised so re-renders hand React the *same string*: React only rewrites
-  // `dangerouslySetInnerHTML` when the `__html` value changes, so KaTeX's
-  // in-place typesetting survives unrelated re-renders (a sibling selection
-  // change, a filter keystroke) untouched — and the `detex` regex pipeline
-  // runs once per content, not once per render.
+  // Convert prose only when its content or reference context changes.
   const html = useMemo(() => {
     const full = proseHtml(text, refs, cites);
     return As === 'p' ? full : full.replace(/^<p>/, '').replace(/<\/p>$/, '');
   }, [text, refs, cites, As]);
 
-  // No dependency array: React 19 re-sets `dangerouslySetInnerHTML` children
-  // on any re-render of this element — even with `__html` unchanged — which
-  // reverts KaTeX output to raw `$…$`. typesetMath detects that reset in
-  // O(1) (see typeset.ts) and only re-typesets when it really happened.
+  const macroVersion = useMemo(() => JSON.stringify(macros || {}), [macros]);
+  useHtml(ref, html, macroVersion);
+  // Activity reactivates effects; the typesetter guard preserves unchanged math.
   useEffect(() => {
     if (ref.current) typesetMath(ref.current, macros);
   });
@@ -60,7 +56,6 @@ export function Math({
       ref={ref as never}
       id={id}
       className={className}
-      dangerouslySetInnerHTML={{ __html: html }}
       onClick={(e: React.MouseEvent) => {
         const t = e.target as HTMLElement;
         const refEl = t.closest('.ref[data-id]') as HTMLElement | null;
